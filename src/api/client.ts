@@ -4,12 +4,12 @@ import { getToken } from "../utils/storage";
 
 const API_URL =
     (Constants.expoConfig?.extra as any)?.API_URL ||
-    process.env.EXPO_PUBLIC_API_URL ||
+    process.env.API_URL ||
     "http://localhost:8000";
 
 export const api = axios.create({
     baseURL: API_URL,
-    timeout: 15000,
+    timeout: 30000,
 });
 
 api.interceptors.request.use(async (config) => {

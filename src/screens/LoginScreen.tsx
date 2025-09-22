@@ -1,113 +1,53 @@
-import React, { useContext, useState } from "react";
-import { View, Text, StyleSheet, TextInput, Button } from "react-native";
-import { useForm, Controller } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { AuthContext } from "../auth/AuthProvider";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../App";
+import React, { useState } from "react";
+import { View, Text, TextInput, Button, ActivityIndicator } from "react-native";
+import { useAuth } from "../context/AuthContext";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Login">;
+export default function LoginScreen({ navigation }: any) {
+    const { signIn } = useAuth();
+    const [email, setEmail] = useState("");
+    const [senha, setSenha] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [err, setErr] = useState<string | null>(null);
 
-const schema = z.object({
-    email: z.string().email("E-mail inválido"),
-    password: z.string().min(3, "Mínimo de 3 caracteres"),
-});
-
-type FormData = z.infer<typeof schema>;
-
-export default function LoginScreen({ navigation }: Props) {
-    const { login } = useContext(AuthContext);
-    const [submitting, setSubmitting] = useState(false);
-
-    const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
-        defaultValues: { email: "", password: "" },
-    });
-
-    const onSubmit = async (data: FormData) => {
-        setSubmitting(true);
+    const onSubmit = async () => {
+        setLoading(true);
+        setErr(null);
         try {
-            await login(data.email, data.password);
-        } catch (e) {
-            alert("Falha no login. Verifique suas credenciais.");
+            await signIn({ email, senha });
+            navigation.replace("Home");
+        } catch (e: any) {
+            setErr(e?.response?.data?.detail || e.message || "Falha no login");
         } finally {
-            setSubmitting(false);
+            setLoading(false);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Login</Text>
-
-            <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                        placeholder="E-mail"
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        style={styles.input}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        value={value}
-                    />
-                )}
+        <View style={{ flex: 1, gap: 12, padding: 16, justifyContent: "center" }}>
+            <Text style={{ fontSize: 22, fontWeight: "600" }}>Entrar</Text>
+            <TextInput
+                placeholder="E-mail"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
             />
-            {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
-
-            <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                        placeholder="Senha"
-                        secureTextEntry
-                        style={styles.input}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        value={value}
-                    />
-                )}
+            <TextInput
+                placeholder="Senha"
+                secureTextEntry
+                value={senha}
+                onChangeText={setSenha}
+                style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
             />
-            {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
-
-            <Button title={submitting ? "Entrando..." : "Entrar"} onPress={handleSubmit(onSubmit)} disabled={submitting} />
-
-            <View style={{ height: 12 }} />
-
-            <Button title="Ir para cadastro" onPress={() => navigation.navigate("Signup")} />
+            {err && <Text style={{ color: "red" }}>{err}</Text>}
+            {loading ? <ActivityIndicator /> : <Button title="Entrar" onPress={onSubmit} />}
+            <Text style={{ textAlign: "center", marginTop: 8 }}>
+                Novo por aqui?{" "}
+                <Text style={{ color: "blue" }} onPress={() => navigation.navigate("Signup")}>
+                    Criar conta
+                </Text>
+            </Text>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 24,
-        gap: 8,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: "bold",
-        marginBottom: 16,
-    },
-    input: {
-        width: "100%",
-        maxWidth: 360,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 6,
-        backgroundColor: "#fff",
-    },
-    error: {
-        color: "#b00020",
-        alignSelf: "flex-start",
-        maxWidth: 360,
-        marginBottom: 4,
-    },
-});
