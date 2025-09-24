@@ -1,12 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { login as apiLogin, signup as apiSignup, me as apiMe } from "../api/auth";
 import { saveToken, clearToken, getToken } from "../utils/storage";
+import { setUnauthorizedHandler } from "../api/client"; // <-- novo
 
-type User = {
-    id: number;
-    nome: string;
-    email: string;
-};
+type User = { id: number; nome: string; email: string };
 
 type AuthContextType = {
     user: User | null;
@@ -59,6 +56,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await clearToken();
         setUser(null);
     };
+
+    // ===== novo: registra callback global p/ 401 =====
+    useEffect(() => {
+        setUnauthorizedHandler(() => {
+            // se qualquer request retornar 401, cai aqui
+            signOut();
+        });
+    }, [signOut]);
 
     const value = useMemo(() => ({ user, loading, signIn, signUp, signOut }), [user, loading]);
 
