@@ -11,11 +11,20 @@ export default function SignupScreen({ navigation }: any) {
     const [err, setErr] = useState<string | null>(null);
 
     const onSubmit = async () => {
+        const nomeT = nome.trim();
+        const emailT = email.trim();
+        const senhaT = senha.trim();
+
+        if (!nomeT || !emailT || !senhaT) {
+            setErr("Preencha nome, e-mail e senha.");
+            return;
+        }
+
         setLoading(true);
         setErr(null);
         try {
-            await signUp({ nome, email, senha });
-            navigation.replace("Home");
+            await signUp({ nome: nomeT, email: emailT, senha: senhaT });
+            // RootNavigator troca automaticamente para Home
         } catch (e: any) {
             setErr(e?.response?.data?.detail || e.message || "Falha no cadastro");
         } finally {
@@ -26,12 +35,14 @@ export default function SignupScreen({ navigation }: any) {
     return (
         <View style={{ flex: 1, gap: 12, padding: 16, justifyContent: "center" }}>
             <Text style={{ fontSize: 22, fontWeight: "600" }}>Criar conta</Text>
+
             <TextInput
                 placeholder="Nome"
                 value={nome}
                 onChangeText={setNome}
                 style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
             />
+
             <TextInput
                 placeholder="E-mail"
                 autoCapitalize="none"
@@ -40,6 +51,7 @@ export default function SignupScreen({ navigation }: any) {
                 onChangeText={setEmail}
                 style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
             />
+
             <TextInput
                 placeholder="Senha"
                 secureTextEntry
@@ -47,8 +59,19 @@ export default function SignupScreen({ navigation }: any) {
                 onChangeText={setSenha}
                 style={{ borderWidth: 1, padding: 12, borderRadius: 8 }}
             />
+
             {err && <Text style={{ color: "red" }}>{err}</Text>}
-            {loading ? <ActivityIndicator /> : <Button title="Criar conta" onPress={onSubmit} />}
+
+            {loading ? (
+                <ActivityIndicator />
+            ) : (
+                <Button
+                    title="Criar conta"
+                    onPress={onSubmit}
+                    disabled={!nome.trim() || !email.trim() || !senha.trim()}
+                />
+            )}
+
             <Text style={{ textAlign: "center", marginTop: 8 }}>
                 Já tem conta?{" "}
                 <Text style={{ color: "blue" }} onPress={() => navigation.navigate("Login")}>

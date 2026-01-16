@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -11,11 +11,15 @@ import {
     Alert,
     Platform,
 } from "react-native";
+import { useNavigation, CommonActions } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 import { createPost, listFeed, Post } from "../api/posts";
+import type { RootStackParamList } from "../types/navigation";
 
 export default function HomeScreen() {
     const { signOut, user } = useAuth();
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -28,9 +32,43 @@ export default function HomeScreen() {
 
     const PAGE_SIZE = 20;
 
+    // -------- AbortController para cancelar requisições do feed --------
+    const abortRef = useRef<AbortController | null>(null);
+    const nextSignal = () => {
+        abortRef.current?.abort();
+        const c = new AbortController();
+        abortRef.current = c;
+        return c.signal;
+    };
+
+    useEffect(() => {
+        return () => {
+            abortRef.current?.abort();
+        };
+    }, []);
+
+    // Se o usuário sair, aborta tudo e força navegação p/ Login
+    useEffect(() => {
+        if (!user) {
+            abortRef.current?.abort();
+            // garante que voltamos para a tela de Login
+            navigation.dispatch(
+                CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: "Login" }],
+                })
+            );
+        }
+    }, [user, navigation]);
+
     const fetchPage = useCallback(
         async (offset: number, append: boolean) => {
-            const data = await listFeed({ limit: PAGE_SIZE, offset });
+            const data = await listFeed({
+                limit: PAGE_SIZE,
+                offset,
+                // se seu api/posts.ts aceitar, descomente:
+                // signal: nextSignal(),
+            });
             if (data.length < PAGE_SIZE) setHasMore(false);
             setPosts((prev) => (append ? [...prev, ...data] : data));
         },
@@ -43,62 +81,58 @@ export default function HomeScreen() {
             setHasMore(true);
             await fetchPage(0, false);
         } catch (e: any) {
-            // Se não autenticado, desloga e sai
-            if (e?.response?.status === 401) {
-                await signOut();
-                return;
-            }
-            // Evita a “metralhadora” de onEndReached
+            if (e?.name === "CanceledError" || e?.message === "canceled") return;
+            if (e?.response?.status === 401) return;
             setHasMore(false);
             Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao carregar feed");
         } finally {
             setLoading(false);
         }
-    }, [fetchPage, signOut]);
+    }, [fetchPage]);
 
+    // carrega o feed SOMENTE se houver user
     useEffect(() => {
-        initialLoad();
-    }, [initialLoad]);
+        if (user) {
+            initialLoad();
+        }
+    }, [initialLoad, user]);
 
     const onRefresh = useCallback(async () => {
+        if (!user) return;
         try {
             setRefreshing(true);
             setHasMore(true);
             await fetchPage(0, false);
         } catch (e: any) {
-            if (e?.response?.status === 401) {
-                await signOut();
-                return;
-            }
+            if (e?.name === "CanceledError" || e?.message === "canceled") return;
+            if (e?.response?.status === 401) return;
             setHasMore(false);
             Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao atualizar feed");
         } finally {
             setRefreshing(false);
         }
-    }, [fetchPage, signOut]);
+    }, [fetchPage, user]);
 
     const onEndReached = useCallback(async () => {
-        // Guardas contra loop:
+        if (!user) return;
         if (loadingMore || !hasMore || loading) return;
-        // Não tente paginar se nem a primeira página carregou
         if (posts.length === 0) return;
 
         try {
             setLoadingMore(true);
             await fetchPage(posts.length, true);
         } catch (e: any) {
-            if (e?.response?.status === 401) {
-                await signOut();
-                return;
-            }
+            if (e?.name === "CanceledError" || e?.message === "canceled") return;
+            if (e?.response?.status === 401) return;
             setHasMore(false);
             Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao carregar mais posts");
         } finally {
             setLoadingMore(false);
         }
-    }, [fetchPage, hasMore, loading, loadingMore, posts.length, signOut]);
+    }, [fetchPage, hasMore, loading, loadingMore, posts.length, user]);
 
     const handleCreatePost = useCallback(async () => {
+        if (!user) return;
         const conteudo = (novoPost || "").trim();
         if (!conteudo) return;
         try {
@@ -107,49 +141,42 @@ export default function HomeScreen() {
             setPosts((prev) => [created, ...prev]);
             setNovoPost("");
         } catch (e: any) {
-            if (e?.response?.status === 401) {
-                await signOut();
-                return;
-            }
+            if (e?.name === "CanceledError" || e?.message === "canceled") return;
+            if (e?.response?.status === 401) return;
             Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Não foi possível publicar");
         } finally {
             setCreating(false);
         }
-    }, [novoPost, signOut]);
+    }, [novoPost, user]);
 
     const handleSignOut = useCallback(async () => {
+        const doIt = async () => {
+            abortRef.current?.abort();
+            try {
+                await signOut();
+            } catch {}
+        };
+
         if (Platform.OS === "web") {
             const ok = typeof window !== "undefined" ? window.confirm("Deseja realmente sair da conta?") : true;
-            if (ok) {
-                await signOut();
-            }
+            if (ok) await doIt();
             return;
         }
 
         Alert.alert("Sair", "Deseja realmente sair da conta?", [
             { text: "Cancelar", style: "cancel" },
-            { text: "Sair", style: "destructive", onPress: async () => { await signOut(); } },
+            { text: "Sair", style: "destructive", onPress: () => { void doIt(); } },
         ]);
     }, [signOut]);
 
-    const renderItem = ({ item }: { item: Post }) => {
-        const authorName = item.usuario?.nome ?? `#${item.usuario_id}`;
-        let when: string | undefined;
-        if (item.criado_em) {
-            try {
-                const d = new Date(item.criado_em);
-                when = d.toLocaleString();
-            } catch {}
-        }
-
+    if (!user) {
+        // enquanto reseta a navegação, evita “tela branca”
         return (
-            <View style={styles.postCard}>
-                <Text style={styles.postAuthor}>{authorName}</Text>
-                {when ? <Text style={styles.postDate}>{when}</Text> : null}
-                <Text style={styles.postText}>{item.conteudo}</Text>
+            <View style={styles.loading}>
+                <ActivityIndicator />
             </View>
         );
-    };
+    }
 
     if (loading) {
         return (
@@ -166,7 +193,19 @@ export default function HomeScreen() {
                     <Text style={styles.title}>Feed</Text>
                     {user ? <Text style={styles.subtitle}>Olá, {user.nome}</Text> : null}
                 </View>
-                <Button title="Sair" onPress={handleSignOut} />
+
+                <View style={styles.headerRight}>
+                    {user && (
+                        <Text
+                            style={styles.profileLink}
+                            onPress={() => navigation.navigate("Profile", { userId: user.id })}
+                            numberOfLines={1}
+                        >
+                            {user.nome}
+                        </Text>
+                    )}
+                    <Button title="Sair" onPress={handleSignOut} />
+                </View>
             </View>
 
             <View style={styles.composer}>
@@ -184,7 +223,23 @@ export default function HomeScreen() {
             <FlatList
                 data={posts}
                 keyExtractor={(item) => String(item.id)}
-                renderItem={renderItem}
+                renderItem={({ item }) => {
+                    const authorName = item.usuario?.nome ?? `#${item.usuario_id}`;
+                    let when: string | undefined;
+                    if (item.criado_em) {
+                        try {
+                            const d = new Date(item.criado_em);
+                            when = d.toLocaleString();
+                        } catch {}
+                    }
+                    return (
+                        <View style={styles.postCard}>
+                            <Text style={styles.postAuthor}>{authorName}</Text>
+                            {when ? <Text style={styles.postDate}>{when}</Text> : null}
+                            <Text style={styles.postText}>{item.conteudo}</Text>
+                        </View>
+                    );
+                }}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -217,6 +272,17 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+    },
+    headerRight: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        maxWidth: "50%",
+    },
+    profileLink: {
+        fontSize: 16,
+        color: "blue",
+        textDecorationLine: "underline",
     },
     title: { fontSize: 24, fontWeight: "bold" },
     subtitle: { marginTop: 4, color: "#666" },

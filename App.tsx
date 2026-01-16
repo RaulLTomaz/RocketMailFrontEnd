@@ -6,9 +6,11 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import HomeScreen from "./src/screens/HomeScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
 import { api } from "./src/api/client";
+import type { RootStackParamList } from "./src/types/navigation";
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function useWarmUpServer() {
     useEffect(() => {
@@ -28,28 +30,26 @@ function RootNavigator() {
         );
     }
 
+    if (isAuth) {
+        return (
+            <Stack.Navigator screenOptions={{ headerShown: true }}>
+                <Stack.Screen
+                    name="Home"
+                    component={HomeScreen}
+                    options={{ headerTitle: "Home" }}
+                />
+                <Stack.Screen
+                    name="Profile"
+                    component={ProfileScreen}
+                    options={{ headerTitle: "Perfil" }}
+                />
+            </Stack.Navigator>
+        );
+    }
+
     return (
-        <Stack.Navigator
-            // a key força o Stack a ser remontado quando o estado de auth muda
-            key={isAuth ? "app" : "auth"}
-            // define a rota inicial conforme login
-            initialRouteName={isAuth ? "Home" : "Login"}
-            // esconde header por padrão (e sobrescrevemos onde quiser)
-            screenOptions={{ headerShown: false }}
-        >
-            {/* Home sempre registrada para que navigation.replace('Home') funcione */}
-            <Stack.Screen
-                name="Home"
-                component={HomeScreen}
-                options={{ headerShown: true, headerTitle: "Home" }}
-            />
-
-            <Stack.Screen
-                name="Login"
-                component={LoginScreen}
-                // header já escondido pelo screenOptions
-            />
-
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen
                 name="Signup"
                 component={SignupScreen}
