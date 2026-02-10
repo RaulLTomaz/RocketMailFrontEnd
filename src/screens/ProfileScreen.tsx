@@ -8,24 +8,37 @@ import {
     RefreshControl,
     Alert,
 } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
-import { getUser, getUserStats, getUserPosts, UsuarioOut, Post as UPost } from "../api/users";
+import {
+    getUser,
+    getUserStats,
+    getUserPosts,
+    UsuarioOut,
+    Post as UPost,
+} from "../api/users";
+import type { RootStackParamList } from "../types/navigation";
 
-type Props = {
-    route?: { params?: { userId?: number } };
-};
+type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
 
 const PAGE_SIZE = 20;
 
 export default function ProfileScreen({ route }: Props) {
     const { user: me } = useAuth();
+
     const viewingUserId = useMemo<number | null>(() => {
-        if (route?.params?.userId != null) return Number(route.params.userId);
+        if (route.params?.userId != null) {
+            return route.params.userId;
+        }
         return me ? me.id : null;
-    }, [route?.params?.userId, me]);
+    }, [route.params?.userId, me]);
 
     const [user, setUser] = useState<UsuarioOut | null>(null);
-    const [stats, setStats] = useState<{ posts: number; seguidores: number; seguindo: number } | null>(null);
+    const [stats, setStats] = useState<{
+        posts: number;
+        seguidores: number;
+        seguindo: number;
+    } | null>(null);
     const [posts, setPosts] = useState<UPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -35,25 +48,45 @@ export default function ProfileScreen({ route }: Props) {
     const isMe = me && viewingUserId === me.id;
 
     const loadHeader = useCallback(async (id: number) => {
-        const [u, s] = await Promise.all([getUser(id), getUserStats(id)]);
+        const [u, s] = await Promise.all([
+            getUser(id),
+            getUserStats(id),
+        ]);
         setUser(u);
         setStats(s.stats);
     }, []);
 
-    const loadPage = useCallback(async (id: number, offset: number, append: boolean) => {
-        const data = await getUserPosts(id, { limit: PAGE_SIZE, offset });
-        if (data.length < PAGE_SIZE) setHasMore(false);
-        setPosts((prev) => (append ? [...prev, ...data] : data));
-    }, []);
+    const loadPage = useCallback(
+        async (id: number, offset: number, append: boolean) => {
+            const data = await getUserPosts(id, {
+                limit: PAGE_SIZE,
+                offset,
+            });
+            if (data.length < PAGE_SIZE) {
+                setHasMore(false);
+            }
+            setPosts((prev) => (append ? [...prev, ...data] : data));
+        },
+        []
+    );
 
     const initialLoad = useCallback(async () => {
         if (!viewingUserId) return;
+
         try {
             setLoading(true);
             setHasMore(true);
-            await Promise.all([loadHeader(viewingUserId), loadPage(viewingUserId, 0, false)]);
+            await Promise.all([
+                loadHeader(viewingUserId),
+                loadPage(viewingUserId, 0, false),
+            ]);
         } catch (e: any) {
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao carregar perfil");
+            Alert.alert(
+                "Erro",
+                e?.response?.data?.detail ||
+                    e?.message ||
+                    "Falha ao carregar perfil"
+            );
             setHasMore(false);
         } finally {
             setLoading(false);
@@ -66,12 +99,21 @@ export default function ProfileScreen({ route }: Props) {
 
     const onRefresh = useCallback(async () => {
         if (!viewingUserId) return;
+
         try {
             setRefreshing(true);
             setHasMore(true);
-            await Promise.all([loadHeader(viewingUserId), loadPage(viewingUserId, 0, false)]);
+            await Promise.all([
+                loadHeader(viewingUserId),
+                loadPage(viewingUserId, 0, false),
+            ]);
         } catch (e: any) {
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao atualizar");
+            Alert.alert(
+                "Erro",
+                e?.response?.data?.detail ||
+                    e?.message ||
+                    "Falha ao atualizar"
+            );
             setHasMore(false);
         } finally {
             setRefreshing(false);
@@ -87,7 +129,12 @@ export default function ProfileScreen({ route }: Props) {
             setLoadingMore(true);
             await loadPage(viewingUserId, posts.length, true);
         } catch (e: any) {
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao carregar mais posts");
+            Alert.alert(
+                "Erro",
+                e?.response?.data?.detail ||
+                    e?.message ||
+                    "Falha ao carregar mais posts"
+            );
             setHasMore(false);
         } finally {
             setLoadingMore(false);
@@ -101,6 +148,7 @@ export default function ProfileScreen({ route }: Props) {
                 when = new Date(item.criado_em).toLocaleString();
             } catch {}
         }
+
         return (
             <View style={styles.postCard}>
                 {when ? <Text style={styles.postDate}>{when}</Text> : null}
@@ -130,15 +178,21 @@ export default function ProfileScreen({ route }: Props) {
             <View style={styles.header}>
                 <Text style={styles.name}>{user.nome}</Text>
                 <Text style={styles.email}>{user.email}</Text>
+
                 {stats ? (
                     <View style={styles.counters}>
                         <Text style={styles.counter}>{stats.posts} posts</Text>
                         <Text style={styles.dot}>•</Text>
-                        <Text style={styles.counter}>{stats.seguidores} seguidores</Text>
+                        <Text style={styles.counter}>
+                            {stats.seguidores} seguidores
+                        </Text>
                         <Text style={styles.dot}>•</Text>
-                        <Text style={styles.counter}>{stats.seguindo} seguindo</Text>
+                        <Text style={styles.counter}>
+                            {stats.seguindo} seguindo
+                        </Text>
                     </View>
                 ) : null}
+
                 {isMe ? <Text style={styles.badge}>Seu perfil</Text> : null}
             </View>
 
@@ -148,7 +202,12 @@ export default function ProfileScreen({ route }: Props) {
                 renderItem={renderItem}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                    />
+                }
                 onEndReachedThreshold={0.5}
                 onEndReached={onEndReached}
                 ListFooterComponent={

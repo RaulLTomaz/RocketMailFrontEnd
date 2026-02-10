@@ -1,9 +1,20 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+    useCallback,
+} from "react";
 import { login as apiLogin, signup as apiSignup, me as apiMe } from "../api/auth";
 import { saveToken, clearToken, getToken } from "../utils/storage";
-import { setUnauthorizedHandler } from "../api/client"; // <-- novo
+import { setUnauthorizedHandler } from "../api/client";
 
-type User = { id: number; nome: string; email: string };
+type User = {
+    id: number;
+    nome: string;
+    email: string;
+};
 
 type AuthContextType = {
     user: User | null;
@@ -52,26 +63,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(me);
     };
 
-    const signOut = async () => {
+    // ✅ ESTÁVEL
+    const signOut = useCallback(async () => {
         await clearToken();
         setUser(null);
-    };
+    }, []);
 
-    // ===== novo: registra callback global p/ 401 =====
+    // ✅ handler 401 sempre aponta para o signOut correto
     useEffect(() => {
         setUnauthorizedHandler(() => {
-            // se qualquer request retornar 401, cai aqui
-            signOut();
+            void signOut();
         });
     }, [signOut]);
 
-    const value = useMemo(() => ({ user, loading, signIn, signUp, signOut }), [user, loading]);
+    const value = useMemo(
+        () => ({ user, loading, signIn, signUp, signOut }),
+        [user, loading, signOut]
+    );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
     const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+    if (!ctx) {
+        throw new Error("useAuth must be used within AuthProvider");
+    }
     return ctx;
 }
