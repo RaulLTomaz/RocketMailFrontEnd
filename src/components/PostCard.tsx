@@ -12,6 +12,7 @@ import type { PostWithLikes } from "../api/posts";
 import { likePost, unlikePost } from "../api/likes";
 import { deletePost } from "../api/posts";
 import { apiErrorMessage } from "../utils/apiError";
+import Avatar from "./Avatar";
 
 type Props = {
     item: PostWithLikes;
@@ -88,15 +89,28 @@ export default function PostCard({
         ]);
     };
 
+    const goAuthor = () => {
+        if (item.usuario?.id != null) onPressAuthor?.(item.usuario.id);
+    };
+
     return (
         <View style={styles.card}>
             <Pressable
-                onPress={() => item.usuario?.id != null && onPressAuthor?.(item.usuario.id)}
+                style={styles.headerRow}
+                onPress={goAuthor}
                 disabled={!onPressAuthor || item.usuario?.id == null}
             >
-                <Text style={styles.author}>{item.usuario?.nome ?? "Usuário"}</Text>
+                <Avatar
+                    nome={item.usuario?.nome}
+                    uri={item.usuario?.foto_url}
+                    size="sm"
+                />
+                <View style={styles.headerText}>
+                    <Text style={styles.author}>{item.usuario?.nome ?? "Usuário"}</Text>
+                    {when ? <Text style={styles.date}>{when}</Text> : null}
+                </View>
             </Pressable>
-            {when ? <Text style={styles.date}>{when}</Text> : null}
+
             <Text style={styles.text}>{item.post}</Text>
 
             <View style={styles.actions}>
@@ -142,8 +156,15 @@ const styles = StyleSheet.create({
         padding: 12,
         backgroundColor: "#fff",
     },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 8,
+    },
+    headerText: { flex: 1, minWidth: 0 },
     author: { fontWeight: "bold", fontSize: 16, color: "#111" },
-    date: { color: "#777", marginTop: 2, marginBottom: 8, fontSize: 12 },
+    date: { color: "#777", marginTop: 2, fontSize: 12 },
     text: { fontSize: 16, lineHeight: 22, color: "#222" },
     actions: {
         flexDirection: "row",

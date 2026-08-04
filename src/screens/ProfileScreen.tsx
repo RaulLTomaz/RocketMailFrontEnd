@@ -16,6 +16,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../context/AuthContext";
 import {
     getUser,
@@ -23,6 +24,8 @@ import {
     getUserPosts,
     updateMe,
     deleteMe,
+    uploadFoto,
+    deleteFoto,
     UsuarioOut,
 } from "../api/users";
 import type { PostWithLikes } from "../api/posts";
@@ -30,6 +33,8 @@ import { attachLikes } from "../api/attachLikes";
 import type { RootStackParamList } from "../types/navigation";
 import { apiErrorMessage } from "../utils/apiError";
 import PostCard from "../components/PostCard";
+import Avatar from "../components/Avatar";
+import PhotoViewer from "../components/PhotoViewer";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
 
@@ -56,6 +61,8 @@ export default function ProfileScreen({ route }: Props) {
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [followBusy, setFollowBusy] = useState(false);
+    const [fotoBusy, setFotoBusy] = useState(false);
+    const [viewerOpen, setViewerOpen] = useState(false);
 
     const [editOpen, setEditOpen] = useState(false);
     const [editNome, setEditNome] = useState("");
@@ -65,6 +72,15 @@ export default function ProfileScreen({ route }: Props) {
 
     const isMe = !!(me && viewingUserId === me.id);
     const following = viewingUserId != null ? isFollowing(viewingUserId) : false;
+    const hasPhoto = !!user?.foto_url;
+
+    const applyUserUpdate = useCallback(
+        (updated: UsuarioOut) => {
+            setProfileUser(updated);
+            if (isMe) setUser(updated);
+        },
+        [isMe, setUser]
+    );
 
     const loadHeader = useCallback(async (id: number) => {
         const [u, s] = await Promise.all([getUser(id), getUserStats(id)]);
@@ -161,6 +177,108 @@ export default function ProfileScreen({ route }: Props) {
         }
     };
 
+    const pickAndUploadFoto = async () => {
+        if (!isMe || fotoBusy) return;
+
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+            Alert.alert(
+                "Permissão",
+                "Precisamos de acesso às fotos para definir a foto de perfil."
+            );
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+        });
+
+        if (result.canceled || !result.assets?.[0]) return;
+
+        const asset = result.assets[0];
+        setFotoBusy(true);
+        try {
+            const updated = await uploadFoto({
+                uri: asset.uri,
+                type: asset.mimeType || undefined,
+                name: asset.fileName || undefined,
+            });
+            applyUserUpdate(updated);
+            // atualiza avatares nos posts locais se for o autor
+            setPosts((prev) =>
+                prev.map((p) =>
+                    p.usuario?.id === updated.id
+                        ? {
+                              ...p,
+                              usuario: {
+                                  ...p.usuario,
+                                  foto_url: updated.foto_url,
+                              },
+                          }
+                        : p
+                )
+            );
+        } catch (e: unknown) {
+            Alert.alert("Erro", apiErrorMessage(e, "Não foi possível enviar a foto"));
+        } finally {
+            setFotoBusy(false);
+        }
+    };
+
+    const confirmRemoveFoto = () => {
+        if (!isMe || !hasPhoto || fotoBusy) return;
+
+        const run = async () => {
+            setFotoBusy(true);
+            try {
+                const updated = await deleteFoto();
+                applyUserUpdate(updated);
+                setPosts((prev) =>
+                    prev.map((p) =>
+                        p.usuario?.id === updated.id
+                            ? {
+                                  ...p,
+                                  usuario: {
+                                      ...p.usuario,
+                                      foto_url: null,
+                                  },
+                              }
+                            : p
+                    )
+                );
+            } catch (e: unknown) {
+                Alert.alert("Erro", apiErrorMessage(e, "Não foi possível remover a foto"));
+            } finally {
+                setFotoBusy(false);
+            }
+        };
+
+        if (Platform.OS === "web") {
+            if (typeof window !== "undefined" && window.confirm("Remover foto de perfil?")) {
+                void run();
+            }
+            return;
+        }
+
+        Alert.alert("Remover foto", "Remover a foto de perfil?", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Remover", style: "destructive", onPress: () => { void run(); } },
+        ]);
+    };
+
+    const onAvatarPress = () => {
+        if (hasPhoto) {
+            setViewerOpen(true);
+            return;
+        }
+        if (isMe) {
+            void pickAndUploadFoto();
+        }
+    };
+
     const openEdit = () => {
         if (!user) return;
         setEditNome(user.nome);
@@ -184,8 +302,7 @@ export default function ProfileScreen({ route }: Props) {
             };
             if (editSenha.trim()) payload.senha = editSenha.trim();
             const updated = await updateMe(payload);
-            setProfileUser(updated);
-            setUser(updated);
+            applyUserUpdate(updated);
             setEditOpen(false);
         } catch (e: unknown) {
             Alert.alert("Erro", apiErrorMessage(e, "Não foi possível salvar"));
@@ -243,8 +360,38 @@ export default function ProfileScreen({ route }: Props) {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.name}>{user.nome}</Text>
-                <Text style={styles.email}>{user.email}</Text>
+                <View style={styles.identityRow}>
+                    <Pressable
+                        onPress={onAvatarPress}
+                        disabled={fotoBusy}
+                        accessibilityRole="button"
+                        accessibilityHint={
+                            hasPhoto
+                                ? "Toque para ver a foto em tela cheia"
+                                : isMe
+                                  ? "Toque para escolher uma foto"
+                                  : undefined
+                        }
+                    >
+                        <View>
+                            <Avatar nome={user.nome} uri={user.foto_url} size="lg" />
+                            {fotoBusy ? (
+                                <View style={styles.avatarBusy}>
+                                    <ActivityIndicator color="#fff" />
+                                </View>
+                            ) : null}
+                        </View>
+                    </Pressable>
+                    <View style={styles.identityText}>
+                        <Text style={styles.name}>{user.nome}</Text>
+                        <Text style={styles.email}>{user.email}</Text>
+                        {hasPhoto ? (
+                            <Text style={styles.hint}>Toque na foto para ampliar</Text>
+                        ) : isMe ? (
+                            <Text style={styles.hint}>Toque no avatar para adicionar foto</Text>
+                        ) : null}
+                    </View>
+                </View>
 
                 {stats ? (
                     <View style={styles.counters}>
@@ -274,6 +421,19 @@ export default function ProfileScreen({ route }: Props) {
                     ) : null}
                     {isMe ? (
                         <>
+                            <Button
+                                title={fotoBusy ? "Enviando..." : "Alterar foto"}
+                                onPress={pickAndUploadFoto}
+                                disabled={fotoBusy}
+                            />
+                            {hasPhoto ? (
+                                <Button
+                                    title="Remover foto"
+                                    color="#a33"
+                                    onPress={confirmRemoveFoto}
+                                    disabled={fotoBusy}
+                                />
+                            ) : null}
                             <Button title="Editar perfil" onPress={openEdit} />
                             <Button
                                 title="Excluir conta"
@@ -327,6 +487,13 @@ export default function ProfileScreen({ route }: Props) {
                 }
             />
 
+            <PhotoViewer
+                visible={viewerOpen}
+                uri={user.foto_url}
+                nome={user.nome}
+                onClose={() => setViewerOpen(false)}
+            />
+
             <Modal visible={editOpen} animationType="slide" transparent>
                 <View style={styles.modalBackdrop}>
                     <View style={styles.modalCard}>
@@ -378,9 +545,19 @@ export default function ProfileScreen({ route }: Props) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#fff" },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
-    header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 4 },
+    header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 8 },
+    identityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+    identityText: { flex: 1, minWidth: 0, gap: 2 },
     name: { fontSize: 22, fontWeight: "700" },
     email: { color: "#666" },
+    hint: { color: "#888", fontSize: 12, marginTop: 4 },
+    avatarBusy: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.35)",
+        borderRadius: 44,
+        alignItems: "center",
+        justifyContent: "center",
+    },
     counters: {
         flexDirection: "row",
         alignItems: "center",

@@ -20,6 +20,7 @@ export type UsuarioOut = {
     id: number;
     nome: string;
     email: string;
+    foto_url?: string | null;
 };
 
 export async function login(payload: LoginPayload): Promise<LoginResponse> {

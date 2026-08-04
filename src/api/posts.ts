@@ -3,6 +3,8 @@ import { api } from "./client";
 export type UsuarioSimples = {
     id: number;
     nome: string;
+    /** Presente quando o backend expuser foto de perfil */
+    foto_url?: string | null;
 };
 
 export type Post = {

@@ -15,6 +15,7 @@ type User = {
     id: number;
     nome: string;
     email: string;
+    foto_url?: string | null;
 };
 
 type AuthContextType = {
