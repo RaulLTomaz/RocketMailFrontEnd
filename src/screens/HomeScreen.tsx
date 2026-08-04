@@ -11,17 +11,23 @@ import {
     Alert,
     Platform,
 } from "react-native";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
-import { createPost, listFeed, Post } from "../api/posts";
+import { createPost, listFeed, PostWithLikes } from "../api/posts";
+import { attachLikes } from "../api/attachLikes";
 import type { RootStackParamList } from "../types/navigation";
+import { apiErrorMessage } from "../utils/apiError";
+import PostCard from "../components/PostCard";
+
+const PAGE_SIZE = 20;
+const MAX_LEN = 280;
 
 export default function HomeScreen() {
     const { signOut, user } = useAuth();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-    const [posts, setPosts] = useState<Post[]>([]);
+    const [posts, setPosts] = useState<PostWithLikes[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -30,9 +36,6 @@ export default function HomeScreen() {
     const [novoPost, setNovoPost] = useState("");
     const [creating, setCreating] = useState(false);
 
-    const PAGE_SIZE = 20;
-
-    // -------- AbortController para cancelar requisições do feed --------
     const abortRef = useRef<AbortController | null>(null);
     const nextSignal = () => {
         abortRef.current?.abort();
@@ -47,33 +50,20 @@ export default function HomeScreen() {
         };
     }, []);
 
-    // Se o usuário sair, aborta tudo e força navegação p/ Login
     useEffect(() => {
-        if (!user) {
-            abortRef.current?.abort();
-            // garante que voltamos para a tela de Login
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: "Login" }],
-                })
-            );
-        }
-    }, [user, navigation]);
+        if (!user) abortRef.current?.abort();
+    }, [user]);
 
-    const fetchPage = useCallback(
-        async (offset: number, append: boolean) => {
-            const data = await listFeed({
-                limit: PAGE_SIZE,
-                offset,
-                // se seu api/posts.ts aceitar, descomente:
-                // signal: nextSignal(),
-            });
-            if (data.length < PAGE_SIZE) setHasMore(false);
-            setPosts((prev) => (append ? [...prev, ...data] : data));
-        },
-        []
-    );
+    const fetchPage = useCallback(async (offset: number, append: boolean) => {
+        const data = await listFeed({
+            limit: PAGE_SIZE,
+            offset,
+            signal: nextSignal(),
+        });
+        const withLikes = await attachLikes(data);
+        setHasMore(data.length >= PAGE_SIZE);
+        setPosts((prev) => (append ? [...prev, ...withLikes] : withLikes));
+    }, []);
 
     const initialLoad = useCallback(async () => {
         try {
@@ -84,17 +74,14 @@ export default function HomeScreen() {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
             setHasMore(false);
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao carregar feed");
+            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar feed"));
         } finally {
             setLoading(false);
         }
     }, [fetchPage]);
 
-    // carrega o feed SOMENTE se houver user
     useEffect(() => {
-        if (user) {
-            initialLoad();
-        }
+        if (user) initialLoad();
     }, [initialLoad, user]);
 
     const onRefresh = useCallback(async () => {
@@ -107,17 +94,14 @@ export default function HomeScreen() {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
             setHasMore(false);
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao atualizar feed");
+            Alert.alert("Erro", apiErrorMessage(e, "Falha ao atualizar feed"));
         } finally {
             setRefreshing(false);
         }
     }, [fetchPage, user]);
 
     const onEndReached = useCallback(async () => {
-        if (!user) return;
-        if (loadingMore || !hasMore || loading) return;
-        if (posts.length === 0) return;
-
+        if (!user || loadingMore || !hasMore || loading || posts.length === 0) return;
         try {
             setLoadingMore(true);
             await fetchPage(posts.length, true);
@@ -125,7 +109,7 @@ export default function HomeScreen() {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
             setHasMore(false);
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Falha ao carregar mais posts");
+            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar mais posts"));
         } finally {
             setLoadingMore(false);
         }
@@ -133,17 +117,22 @@ export default function HomeScreen() {
 
     const handleCreatePost = useCallback(async () => {
         if (!user) return;
-        const conteudo = (novoPost || "").trim();
-        if (!conteudo) return;
+        const texto = (novoPost || "").trim();
+        if (!texto) return;
+        if (texto.length > MAX_LEN) {
+            Alert.alert("Atenção", `O post pode ter no máximo ${MAX_LEN} caracteres.`);
+            return;
+        }
         try {
             setCreating(true);
-            const created = await createPost({ conteudo });
-            setPosts((prev) => [created, ...prev]);
+            const created = await createPost({ post: texto });
+            const [withLikes] = await attachLikes([created]);
+            setPosts((prev) => [withLikes, ...prev]);
             setNovoPost("");
         } catch (e: any) {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
-            Alert.alert("Erro", e?.response?.data?.detail || e?.message || "Não foi possível publicar");
+            Alert.alert("Erro", apiErrorMessage(e, "Não foi possível publicar"));
         } finally {
             setCreating(false);
         }
@@ -158,7 +147,10 @@ export default function HomeScreen() {
         };
 
         if (Platform.OS === "web") {
-            const ok = typeof window !== "undefined" ? window.confirm("Deseja realmente sair da conta?") : true;
+            const ok =
+                typeof window !== "undefined"
+                    ? window.confirm("Deseja realmente sair da conta?")
+                    : true;
             if (ok) await doIt();
             return;
         }
@@ -169,8 +161,16 @@ export default function HomeScreen() {
         ]);
     }, [signOut]);
 
+    const onLikeChange = useCallback(
+        (postId: number, likedByMe: boolean, likeCount: number) => {
+            setPosts((prev) =>
+                prev.map((p) => (p.id === postId ? { ...p, likedByMe, likeCount } : p))
+            );
+        },
+        []
+    );
+
     if (!user) {
-        // enquanto reseta a navegação, evita “tela branca”
         return (
             <View style={styles.loading}>
                 <ActivityIndicator />
@@ -191,21 +191,9 @@ export default function HomeScreen() {
             <View style={styles.header}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title}>Feed</Text>
-                    {user ? <Text style={styles.subtitle}>Olá, {user.nome}</Text> : null}
+                    <Text style={styles.subtitle}>Olá, {user.nome}</Text>
                 </View>
-
-                <View style={styles.headerRight}>
-                    {user && (
-                        <Text
-                            style={styles.profileLink}
-                            onPress={() => navigation.navigate("Profile", { userId: user.id })}
-                            numberOfLines={1}
-                        >
-                            {user.nome}
-                        </Text>
-                    )}
-                    <Button title="Sair" onPress={handleSignOut} />
-                </View>
+                <Button title="Sair" onPress={handleSignOut} />
             </View>
 
             <View style={styles.composer}>
@@ -214,35 +202,43 @@ export default function HomeScreen() {
                     placeholder="O que está acontecendo?"
                     value={novoPost}
                     editable={!creating}
-                    onChangeText={setNovoPost}
+                    onChangeText={(t) => setNovoPost(t.slice(0, MAX_LEN))}
                     multiline
+                    maxLength={MAX_LEN}
                 />
-                <Button title={creating ? "Publicando..." : "Postar"} onPress={handleCreatePost} disabled={creating} />
+                <View style={styles.composerFooter}>
+                    <Text style={styles.counter}>
+                        {novoPost.length}/{MAX_LEN}
+                    </Text>
+                    <Button
+                        title={creating ? "Publicando..." : "Postar"}
+                        onPress={handleCreatePost}
+                        disabled={creating || !novoPost.trim()}
+                    />
+                </View>
             </View>
 
             <FlatList
                 data={posts}
                 keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => {
-                    const authorName = item.usuario?.nome ?? `#${item.usuario_id}`;
-                    let when: string | undefined;
-                    if (item.criado_em) {
-                        try {
-                            const d = new Date(item.criado_em);
-                            when = d.toLocaleString();
-                        } catch {}
-                    }
-                    return (
-                        <View style={styles.postCard}>
-                            <Text style={styles.postAuthor}>{authorName}</Text>
-                            {when ? <Text style={styles.postDate}>{when}</Text> : null}
-                            <Text style={styles.postText}>{item.conteudo}</Text>
-                        </View>
-                    );
-                }}
+                renderItem={({ item }) => (
+                    <PostCard
+                        item={item}
+                        currentUserId={user.id}
+                        onPressAuthor={(userId) =>
+                            navigation.navigate("Profile", { userId })
+                        }
+                        onDeleted={(id) =>
+                            setPosts((prev) => prev.filter((p) => p.id !== id))
+                        }
+                        onLikeChange={onLikeChange}
+                    />
+                )}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
                 onEndReachedThreshold={0.5}
                 onEndReached={onEndReached}
                 ListFooterComponent={
@@ -254,7 +250,7 @@ export default function HomeScreen() {
                 }
                 ListEmptyComponent={
                     <View style={{ padding: 24, alignItems: "center" }}>
-                        <Text>Nenhum post ainda. Seja o primeiro! ✨</Text>
+                        <Text>Nenhum post ainda. Seja o primeiro!</Text>
                     </View>
                 }
             />
@@ -273,20 +269,15 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
     },
-    headerRight: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        maxWidth: "50%",
-    },
-    profileLink: {
-        fontSize: 16,
-        color: "blue",
-        textDecorationLine: "underline",
-    },
     title: { fontSize: 24, fontWeight: "bold" },
     subtitle: { marginTop: 4, color: "#666" },
     composer: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
+    composerFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    counter: { color: "#888", fontSize: 13 },
     input: {
         minHeight: 60,
         borderWidth: 1,
@@ -295,10 +286,5 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 10,
         textAlignVertical: "top",
-        marginBottom: 8,
     },
-    postCard: { borderWidth: 1, borderColor: "#eee", borderRadius: 12, padding: 12 },
-    postAuthor: { fontWeight: "bold", fontSize: 16 },
-    postDate: { color: "#777", marginTop: 2, marginBottom: 8, fontSize: 12 },
-    postText: { fontSize: 16, lineHeight: 22 },
 });
