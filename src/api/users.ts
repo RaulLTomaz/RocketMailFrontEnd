@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { Post } from "./posts";
 
 export type UsuarioOut = {
     id: number;
@@ -15,11 +16,10 @@ export type PerfilStats = {
     };
 };
 
-export type Post = {
-    id: number;
-    conteudo: string;
-    usuario_id: number;
-    criado_em?: string;
+export type UsuarioUpdate = {
+    nome?: string;
+    email?: string;
+    senha?: string;
 };
 
 export async function getUser(id: number): Promise<UsuarioOut> {
@@ -34,13 +34,24 @@ export async function getUserStats(id: number): Promise<PerfilStats> {
 
 export async function getUserPosts(
     id: number,
-    params?: { limit?: number; offset?: number }
+    params?: { limit?: number; offset?: number; signal?: AbortSignal }
 ): Promise<Post[]> {
     const res = await api.get<Post[]>(`/usuario/${id}/posts`, {
         params: {
             limit: params?.limit ?? 20,
             offset: params?.offset ?? 0,
         },
+        signal: params?.signal,
     });
+    return res.data;
+}
+
+export async function updateMe(payload: UsuarioUpdate): Promise<UsuarioOut> {
+    const res = await api.patch<UsuarioOut>("/usuario/me", payload);
+    return res.data;
+}
+
+export async function deleteMe(): Promise<{ deleted: boolean }> {
+    const res = await api.delete<{ deleted: boolean }>("/usuario/me");
     return res.data;
 }

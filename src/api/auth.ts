@@ -26,7 +26,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     const form = new URLSearchParams();
     form.append("username", payload.email);
     form.append("password", payload.senha);
-    const res = await api.post<LoginResponse>("/usuario/login", form, {
+    const res = await api.post<LoginResponse>("/usuario/login", form.toString(), {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
     return res.data;

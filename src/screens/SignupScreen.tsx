@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, TextInput, Button, Text, ActivityIndicator } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { apiErrorMessage } from "../utils/apiError";
 
 export default function SignupScreen({ navigation }: any) {
     const { signUp } = useAuth();
@@ -12,7 +13,7 @@ export default function SignupScreen({ navigation }: any) {
 
     const onSubmit = async () => {
         const nomeT = nome.trim();
-        const emailT = email.trim();
+        const emailT = email.trim().toLowerCase();
         const senhaT = senha.trim();
 
         if (!nomeT || !emailT || !senhaT) {
@@ -25,8 +26,8 @@ export default function SignupScreen({ navigation }: any) {
         try {
             await signUp({ nome: nomeT, email: emailT, senha: senhaT });
             // RootNavigator troca automaticamente para Home
-        } catch (e: any) {
-            setErr(e?.response?.data?.detail || e.message || "Falha no cadastro");
+        } catch (e: unknown) {
+            setErr(apiErrorMessage(e, "Falha no cadastro"));
         } finally {
             setLoading(false);
         }

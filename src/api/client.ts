@@ -18,7 +18,7 @@ console.log("[API] baseURL =", API_URL);
 
 export const api = axios.create({
     baseURL: API_URL,
-    timeout: 0,
+    timeout: 30000,
 });
 
 function buildFullUrl(config: InternalAxiosRequestConfig): string {

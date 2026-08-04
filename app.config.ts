@@ -1,14 +1,12 @@
 import "dotenv/config";
+import type { ConfigContext, ExpoConfig } from "expo/config";
 
-export default {
-    expo: {
-        name: "RocketMailApp",
-        slug: "RocketMailApp",
-        extra: {
-            API_URL: process.env.API_URL,
-        },
-        plugins: [
-            "expo-secure-store",
-        ],
+export default ({ config }: ConfigContext): ExpoConfig => ({
+    ...config,
+    name: config.name ?? "RocketMailApp",
+    slug: config.slug ?? "RocketMailApp",
+    extra: {
+        ...(config.extra ?? {}),
+        API_URL: process.env.API_URL,
     },
-};
+});

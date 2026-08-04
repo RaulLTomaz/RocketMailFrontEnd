@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, ActivityIndicator } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { apiErrorMessage } from "../utils/apiError";
 
 type Props = {
     navigation: {
@@ -23,8 +24,8 @@ export default function LoginScreen({ navigation }: Props) {
             const payload = { email: email.trim().toLowerCase(), senha };
             await signIn(payload);
             // não navega manualmente -> RootNavigator já redireciona
-        } catch (e: any) {
-            setErr(e?.response?.data?.detail || e?.message || "Falha no login");
+        } catch (e: unknown) {
+            setErr(apiErrorMessage(e, "Falha no login"));
         } finally {
             setLoading(false);
         }
