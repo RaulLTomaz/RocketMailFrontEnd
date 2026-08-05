@@ -9,6 +9,7 @@ import {
     ImageStyle,
 } from "react-native";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { useTheme } from "../theme/ThemeContext";
 
 type Size = "sm" | "md" | "lg";
 
@@ -26,7 +27,7 @@ const SIZES: Record<Size, number> = {
     lg: 88,
 };
 
-const PALETTE = ["#3B82F6", "#0EA5E9", "#6366F1", "#14B8A6", "#F59E0B", "#EF4444"];
+const PALETTE = ["#3B9EFF", "#0EA5E9", "#38BDF8", "#14B8A6", "#F97316", "#F87171"];
 
 function initialsFromName(nome?: string | null): string {
     const parts = (nome || "?").trim().split(/\s+/).filter(Boolean);
@@ -44,23 +45,32 @@ function colorFromName(nome?: string | null): string {
 
 /** Avatar com foto ou placeholder de iniciais. */
 export default function Avatar({ nome, uri, size = "sm", style }: Props) {
+    const { colors } = useTheme();
     const dim = SIZES[size];
     const radius = dim / 2;
     const initials = initialsFromName(nome);
     const bg = colorFromName(nome);
     const resolved = resolveMediaUrl(uri);
+    const [failed, setFailed] = React.useState(false);
 
-    if (resolved) {
+    React.useEffect(() => {
+        setFailed(false);
+    }, [resolved]);
+
+    if (resolved && !failed) {
         return (
             <Image
                 source={{ uri: resolved }}
+                onError={() => setFailed(true)}
                 style={
                     [
                         {
                             width: dim,
                             height: dim,
                             borderRadius: radius,
-                            backgroundColor: "#e5e7eb",
+                            backgroundColor: colors.border,
+                            borderWidth: StyleSheet.hairlineWidth,
+                            borderColor: colors.border,
                         },
                         style,
                     ] as any
@@ -79,6 +89,8 @@ export default function Avatar({ nome, uri, size = "sm", style }: Props) {
                     height: dim,
                     borderRadius: radius,
                     backgroundColor: bg,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: colors.border,
                 },
                 style as StyleProp<ViewStyle>,
             ]}

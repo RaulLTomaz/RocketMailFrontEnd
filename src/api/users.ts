@@ -77,7 +77,13 @@ export async function uploadFoto(file: UploadFotoInput): Promise<UsuarioOut> {
         /^https?:\/\//i.test(file.uri)
     ) {
         const blob = await fetch(file.uri).then((r) => r.blob());
-        form.append("file", blob, name);
+        const mime = type || blob.type || "image/jpeg";
+        // File ajuda o boundary multipart no browser (FormData + Blob puro às vezes falha)
+        if (typeof File !== "undefined") {
+            form.append("file", new File([blob], name, { type: mime }));
+        } else {
+            form.append("file", blob, name);
+        }
     } else {
         form.append("file", {
             uri: file.uri,
@@ -87,7 +93,12 @@ export async function uploadFoto(file: UploadFotoInput): Promise<UsuarioOut> {
     }
 
     const res = await api.post<UsuarioOut>("/usuario/me/foto", form, {
-        timeout: 60_000,
+        timeout: 90_000,
+        headers: {
+            Accept: "application/json",
+            // deixa o browser definir multipart boundary
+            "Content-Type": undefined as unknown as string,
+        },
         transformRequest: [
             (data, headers) => {
                 if (typeof FormData !== "undefined" && data instanceof FormData) {
@@ -97,8 +108,10 @@ export async function uploadFoto(file: UploadFotoInput): Promise<UsuarioOut> {
                     >;
                     if (typeof h?.delete === "function") {
                         h.delete("Content-Type");
+                        h.delete("content-type");
                     } else if (h) {
                         delete h["Content-Type"];
+                        delete h["content-type"];
                     }
                 }
                 return data;

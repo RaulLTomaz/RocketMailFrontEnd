@@ -3,28 +3,34 @@ import {
     View,
     Text,
     StyleSheet,
-    Button,
     FlatList,
-    TextInput,
     RefreshControl,
     ActivityIndicator,
     Alert,
     Platform,
+    Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../theme/ThemeContext";
 import { createPost, listFeed, PostWithLikes } from "../api/posts";
 import { attachLikes } from "../api/attachLikes";
 import type { RootStackParamList } from "../types/navigation";
 import { apiErrorMessage } from "../utils/apiError";
 import PostCard from "../components/PostCard";
+import Screen from "../components/ui/Screen";
+import TextField from "../components/ui/TextField";
+import Button from "../components/ui/Button";
+import ThemeToggle from "../components/ThemeToggle";
+import ContentColumn from "../components/ui/ContentColumn";
 
 const PAGE_SIZE = 20;
 const MAX_LEN = 280;
 
 export default function HomeScreen() {
     const { signOut, user } = useAuth();
+    const { colors } = useTheme();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
     const [posts, setPosts] = useState<PostWithLikes[]>([]);
@@ -170,121 +176,163 @@ export default function HomeScreen() {
         []
     );
 
-    if (!user) {
+    if (!user || loading) {
         return (
-            <View style={styles.loading}>
-                <ActivityIndicator />
-            </View>
-        );
-    }
-
-    if (loading) {
-        return (
-            <View style={styles.loading}>
-                <ActivityIndicator />
-            </View>
+            <Screen style={styles.loading}>
+                <ActivityIndicator color={colors.accent} />
+            </Screen>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.title}>Feed</Text>
-                    <Text style={styles.subtitle}>Olá, {user.nome}</Text>
-                </View>
-                <Button title="Sair" onPress={handleSignOut} />
-            </View>
-
-            <View style={styles.composer}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="O que está acontecendo?"
-                    value={novoPost}
-                    editable={!creating}
-                    onChangeText={(t) => setNovoPost(t.slice(0, MAX_LEN))}
-                    multiline
-                    maxLength={MAX_LEN}
-                />
-                <View style={styles.composerFooter}>
-                    <Text style={styles.counter}>
-                        {novoPost.length}/{MAX_LEN}
-                    </Text>
-                    <Button
-                        title={creating ? "Publicando..." : "Postar"}
-                        onPress={handleCreatePost}
-                        disabled={creating || !novoPost.trim()}
-                    />
-                </View>
-            </View>
-
-            <FlatList
-                data={posts}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                    <PostCard
-                        item={item}
-                        currentUserId={user.id}
-                        onPressAuthor={(userId) =>
-                            navigation.navigate("Profile", { userId })
-                        }
-                        onDeleted={(id) =>
-                            setPosts((prev) => prev.filter((p) => p.id !== id))
-                        }
-                        onLikeChange={onLikeChange}
-                    />
-                )}
-                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
-                onEndReachedThreshold={0.5}
-                onEndReached={onEndReached}
-                ListFooterComponent={
-                    loadingMore ? (
-                        <View style={{ paddingVertical: 16 }}>
-                            <ActivityIndicator />
+        <Screen>
+            <ContentColumn style={styles.flex}>
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <Image
+                            source={require("../images/FAVICON.png")}
+                            style={styles.headerLogo}
+                            resizeMode="contain"
+                            accessibilityLabel="RocketMail"
+                        />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={[styles.title, { color: colors.text }]}>Feed</Text>
+                            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                                Olá, {user.nome}
+                            </Text>
                         </View>
-                    ) : null
-                }
-                ListEmptyComponent={
-                    <View style={{ padding: 24, alignItems: "center" }}>
-                        <Text>Nenhum post ainda. Seja o primeiro!</Text>
                     </View>
-                }
-            />
-        </View>
+                    <View style={styles.headerActions}>
+                        <ThemeToggle size="sm" />
+                        <Button title="Sair" variant="ghost" onPress={handleSignOut} />
+                    </View>
+                </View>
+
+                <View
+                    style={[
+                        styles.composer,
+                        {
+                            borderColor: colors.border,
+                            backgroundColor: colors.surface,
+                        },
+                    ]}
+                >
+                    <TextField
+                        style={styles.composerInput}
+                        placeholder="O que está acontecendo?"
+                        value={novoPost}
+                        editable={!creating}
+                        onChangeText={(t) => setNovoPost(t.slice(0, MAX_LEN))}
+                        multiline
+                        maxLength={MAX_LEN}
+                    />
+                    <View style={styles.composerFooter}>
+                        <Text style={[styles.counter, { color: colors.textMuted }]}>
+                            {novoPost.length}/{MAX_LEN}
+                        </Text>
+                        <Button
+                            title={creating ? "Publicando..." : "Postar"}
+                            onPress={handleCreatePost}
+                            disabled={creating || !novoPost.trim()}
+                            loading={creating}
+                        />
+                    </View>
+                </View>
+
+                <FlatList
+                    style={styles.flex}
+                    data={posts}
+                    keyExtractor={(item) => String(item.id)}
+                    renderItem={({ item }) => (
+                        <PostCard
+                            item={item}
+                            currentUserId={user.id}
+                            onPressAuthor={(userId) =>
+                                navigation.navigate("Profile", { userId })
+                            }
+                            onDeleted={(id) =>
+                                setPosts((prev) => prev.filter((p) => p.id !== id))
+                            }
+                            onLikeChange={onLikeChange}
+                        />
+                    )}
+                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                    contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={colors.accent}
+                            colors={[colors.accent]}
+                        />
+                    }
+                    onEndReachedThreshold={0.5}
+                    onEndReached={onEndReached}
+                    ListFooterComponent={
+                        loadingMore ? (
+                            <View style={{ paddingVertical: 16 }}>
+                                <ActivityIndicator color={colors.accent} />
+                            </View>
+                        ) : null
+                    }
+                    ListEmptyComponent={
+                        <View style={{ padding: 24, alignItems: "center" }}>
+                            <Text style={{ color: colors.textMuted }}>
+                                Nenhum post ainda. Seja o primeiro!
+                            </Text>
+                        </View>
+                    }
+                />
+            </ContentColumn>
+        </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#fff" },
-    loading: { flex: 1, justifyContent: "center" },
+    flex: { flex: 1 },
+    loading: { justifyContent: "center", alignItems: "center" },
     header: {
-        paddingTop: 16,
+        paddingTop: 8,
         paddingHorizontal: 16,
         paddingBottom: 8,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: 8,
     },
-    title: { fontSize: 24, fontWeight: "bold" },
-    subtitle: { marginTop: 4, color: "#666" },
-    composer: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
+    headerLeft: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        minWidth: 0,
+    },
+    headerLogo: { width: 36, height: 36 },
+    headerActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    title: { fontSize: 22, fontWeight: "800" },
+    subtitle: { marginTop: 2, fontSize: 13 },
+    composer: {
+        gap: 8,
+        marginTop: 8,
+        marginHorizontal: 16,
+        marginBottom: 4,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderRadius: 14,
+    },
+    composerInput: {
+        minHeight: 72,
+        textAlignVertical: "top",
+    },
     composerFooter: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
     },
-    counter: { color: "#888", fontSize: 13 },
-    input: {
-        minHeight: 60,
-        borderWidth: 1,
-        borderColor: "#ddd",
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        textAlignVertical: "top",
-    },
+    counter: { fontSize: 13 },
 });

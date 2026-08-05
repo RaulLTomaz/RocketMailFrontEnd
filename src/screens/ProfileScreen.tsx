@@ -7,8 +7,6 @@ import {
     FlatList,
     RefreshControl,
     Alert,
-    Button,
-    TextInput,
     Platform,
     Modal,
     Pressable,
@@ -18,6 +16,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../theme/ThemeContext";
 import {
     getUser,
     getUserStats,
@@ -35,6 +34,12 @@ import { apiErrorMessage } from "../utils/apiError";
 import PostCard from "../components/PostCard";
 import Avatar from "../components/Avatar";
 import PhotoViewer from "../components/PhotoViewer";
+import Screen from "../components/ui/Screen";
+import TextField from "../components/ui/TextField";
+import Button from "../components/ui/Button";
+import ThemeToggle from "../components/ThemeToggle";
+import ContentColumn from "../components/ui/ContentColumn";
+import { checkPassword } from "../utils/password";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
 
@@ -43,6 +48,7 @@ const PAGE_SIZE = 20;
 export default function ProfileScreen({ route }: Props) {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { user: me, signOut, setUser, isFollowing, follow, unfollow } = useAuth();
+    const { colors } = useTheme();
 
     const viewingUserId = useMemo<number | null>(() => {
         if (route.params?.userId != null) return route.params.userId;
@@ -191,8 +197,8 @@ export default function ProfileScreen({ route }: Props) {
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ["images"],
-            allowsEditing: true,
-            aspect: [1, 1],
+            // sem crop circular/quadrado — envia a foto completa
+            allowsEditing: false,
             quality: 0.85,
         });
 
@@ -207,7 +213,6 @@ export default function ProfileScreen({ route }: Props) {
                 name: asset.fileName || undefined,
             });
             applyUserUpdate(updated);
-            // atualiza avatares nos posts locais se for o autor
             setPosts((prev) =>
                 prev.map((p) =>
                     p.usuario?.id === updated.id
@@ -270,12 +275,8 @@ export default function ProfileScreen({ route }: Props) {
     };
 
     const onAvatarPress = () => {
-        if (hasPhoto) {
+        if (isMe || hasPhoto) {
             setViewerOpen(true);
-            return;
-        }
-        if (isMe) {
-            void pickAndUploadFoto();
         }
     };
 
@@ -293,6 +294,13 @@ export default function ProfileScreen({ route }: Props) {
         if (!nome || !email) {
             Alert.alert("Atenção", "Nome e e-mail são obrigatórios.");
             return;
+        }
+        if (editSenha.trim()) {
+            const check = checkPassword(editSenha.trim());
+            if (!check.ok) {
+                Alert.alert("Senha inválida", check.message ?? "Senha fraca.");
+                return;
+            }
         }
         setSaving(true);
         try {
@@ -341,172 +349,243 @@ export default function ProfileScreen({ route }: Props) {
         );
     };
 
+    const handleSignOut = useCallback(async () => {
+        const doIt = async () => {
+            try {
+                await signOut();
+            } catch {}
+        };
+
+        if (Platform.OS === "web") {
+            const ok =
+                typeof window !== "undefined"
+                    ? window.confirm("Deseja realmente sair da conta?")
+                    : true;
+            if (ok) await doIt();
+            return;
+        }
+
+        Alert.alert("Sair", "Deseja realmente sair da conta?", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Sair", style: "destructive", onPress: () => { void doIt(); } },
+        ]);
+    }, [signOut]);
+
     if (loading) {
         return (
-            <View style={styles.loading}>
-                <ActivityIndicator />
-            </View>
+            <Screen style={styles.loading} safe={false}>
+                <ActivityIndicator color={colors.accent} />
+            </Screen>
         );
     }
 
     if (!user) {
         return (
-            <View style={styles.loading}>
-                <Text>Usuário não encontrado.</Text>
-            </View>
+            <Screen style={styles.loading} safe={false}>
+                <Text style={{ color: colors.textMuted }}>Usuário não encontrado.</Text>
+            </Screen>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.identityRow}>
-                    <Pressable
-                        onPress={onAvatarPress}
-                        disabled={fotoBusy}
-                        accessibilityRole="button"
-                        accessibilityHint={
-                            hasPhoto
-                                ? "Toque para ver a foto em tela cheia"
-                                : isMe
-                                  ? "Toque para escolher uma foto"
-                                  : undefined
-                        }
-                    >
-                        <View>
-                            <Avatar nome={user.nome} uri={user.foto_url} size="lg" />
-                            {fotoBusy ? (
-                                <View style={styles.avatarBusy}>
-                                    <ActivityIndicator color="#fff" />
-                                </View>
+        <Screen safe={false}>
+            <ContentColumn style={styles.flex}>
+                <View style={styles.header}>
+                    <View style={styles.themeRow}>
+                        <Text style={[styles.themeLabel, { color: colors.textMuted }]}>
+                            Aparência
+                        </Text>
+                        <View style={styles.headerActions}>
+                            <ThemeToggle size="sm" />
+                            <Button title="Sair" variant="ghost" onPress={handleSignOut} />
+                        </View>
+                    </View>
+
+                    <View style={styles.identityRow}>
+                        <Pressable
+                            onPress={onAvatarPress}
+                            disabled={fotoBusy || (!isMe && !hasPhoto)}
+                            accessibilityRole="button"
+                            accessibilityHint={
+                                hasPhoto || isMe
+                                    ? "Toque para ver a foto em tela cheia"
+                                    : undefined
+                            }
+                        >
+                            <View>
+                                <Avatar nome={user.nome} uri={user.foto_url} size="lg" />
+                                {fotoBusy ? (
+                                    <View style={styles.avatarBusy}>
+                                        <ActivityIndicator color="#fff" />
+                                    </View>
+                                ) : null}
+                            </View>
+                        </Pressable>
+                        <View style={styles.identityText}>
+                            <Text style={[styles.name, { color: colors.text }]}>
+                                {user.nome}
+                            </Text>
+                            <Text style={[styles.email, { color: colors.textMuted }]}>
+                                {user.email}
+                            </Text>
+                            {isMe || hasPhoto ? (
+                                <Text style={[styles.hint, { color: colors.textMuted }]}>
+                                    Toque na foto para gerenciar
+                                </Text>
                             ) : null}
                         </View>
-                    </Pressable>
-                    <View style={styles.identityText}>
-                        <Text style={styles.name}>{user.nome}</Text>
-                        <Text style={styles.email}>{user.email}</Text>
-                        {hasPhoto ? (
-                            <Text style={styles.hint}>Toque na foto para ampliar</Text>
-                        ) : isMe ? (
-                            <Text style={styles.hint}>Toque no avatar para adicionar foto</Text>
+                    </View>
+
+                    {stats ? (
+                        <View style={styles.counters}>
+                            <Text style={[styles.counter, { color: colors.text }]}>
+                                <Text style={{ fontWeight: "700" }}>{stats.posts}</Text> posts
+                            </Text>
+                            <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
+                            <Text style={[styles.counter, { color: colors.text }]}>
+                                <Text style={{ fontWeight: "700" }}>{stats.seguidores}</Text>{" "}
+                                seguidores
+                            </Text>
+                            <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
+                            <Text style={[styles.counter, { color: colors.text }]}>
+                                <Text style={{ fontWeight: "700" }}>{stats.seguindo}</Text>{" "}
+                                seguindo
+                            </Text>
+                        </View>
+                    ) : null}
+
+                    {isMe ? (
+                        <Text
+                            style={[
+                                styles.badge,
+                                {
+                                    backgroundColor: colors.accentMuted,
+                                    color: colors.accent,
+                                },
+                            ]}
+                        >
+                            Seu perfil
+                        </Text>
+                    ) : null}
+
+                    <View style={styles.actionsRow}>
+                        {!isMe && viewingUserId != null ? (
+                            <Button
+                                title={
+                                    followBusy
+                                        ? "..."
+                                        : following
+                                          ? "Deixar de seguir"
+                                          : "Seguir"
+                                }
+                                onPress={toggleFollow}
+                                disabled={followBusy}
+                                loading={followBusy}
+                                variant={following ? "ghost" : "primary"}
+                            />
+                        ) : null}
+                        {isMe ? (
+                            <>
+                                <Button
+                                    title="Editar perfil"
+                                    onPress={openEdit}
+                                    variant="ghost"
+                                />
+                                <Button
+                                    title="Excluir conta"
+                                    variant="danger"
+                                    onPress={confirmDeleteAccount}
+                                />
+                            </>
                         ) : null}
                     </View>
                 </View>
 
-                {stats ? (
-                    <View style={styles.counters}>
-                        <Text style={styles.counter}>{stats.posts} posts</Text>
-                        <Text style={styles.dot}>•</Text>
-                        <Text style={styles.counter}>{stats.seguidores} seguidores</Text>
-                        <Text style={styles.dot}>•</Text>
-                        <Text style={styles.counter}>{stats.seguindo} seguindo</Text>
-                    </View>
-                ) : null}
-
-                {isMe ? <Text style={styles.badge}>Seu perfil</Text> : null}
-
-                <View style={styles.actionsRow}>
-                    {!isMe && viewingUserId != null ? (
-                        <Button
-                            title={
-                                followBusy
-                                    ? "..."
-                                    : following
-                                      ? "Deixar de seguir"
-                                      : "Seguir"
-                            }
-                            onPress={toggleFollow}
-                            disabled={followBusy}
+                <FlatList
+                    style={styles.flex}
+                    data={posts}
+                    keyExtractor={(item) => String(item.id)}
+                    renderItem={({ item }) => (
+                        <PostCard
+                            item={item}
+                            currentUserId={me?.id}
+                            onPressAuthor={(userId) => {
+                                if (userId !== viewingUserId) {
+                                    navigation.push("Profile", { userId });
+                                }
+                            }}
+                            onDeleted={(id) => {
+                                setPosts((prev) => prev.filter((p) => p.id !== id));
+                                setStats((s) =>
+                                    s ? { ...s, posts: Math.max(0, s.posts - 1) } : s
+                                );
+                            }}
+                            onLikeChange={onLikeChange}
                         />
-                    ) : null}
-                    {isMe ? (
-                        <>
-                            <Button
-                                title={fotoBusy ? "Enviando..." : "Alterar foto"}
-                                onPress={pickAndUploadFoto}
-                                disabled={fotoBusy}
-                            />
-                            {hasPhoto ? (
-                                <Button
-                                    title="Remover foto"
-                                    color="#a33"
-                                    onPress={confirmRemoveFoto}
-                                    disabled={fotoBusy}
-                                />
-                            ) : null}
-                            <Button title="Editar perfil" onPress={openEdit} />
-                            <Button
-                                title="Excluir conta"
-                                color="#a33"
-                                onPress={confirmDeleteAccount}
-                            />
-                        </>
-                    ) : null}
-                </View>
-            </View>
-
-            <FlatList
-                data={posts}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                    <PostCard
-                        item={item}
-                        currentUserId={me?.id}
-                        onPressAuthor={(userId) => {
-                            if (userId !== viewingUserId) {
-                                navigation.push("Profile", { userId });
-                            }
-                        }}
-                        onDeleted={(id) => {
-                            setPosts((prev) => prev.filter((p) => p.id !== id));
-                            setStats((s) =>
-                                s ? { ...s, posts: Math.max(0, s.posts - 1) } : s
-                            );
-                        }}
-                        onLikeChange={onLikeChange}
-                    />
-                )}
-                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
-                onEndReachedThreshold={0.5}
-                onEndReached={onEndReached}
-                ListFooterComponent={
-                    loadingMore ? (
-                        <View style={{ paddingVertical: 16 }}>
-                            <ActivityIndicator />
+                    )}
+                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                    contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={colors.accent}
+                            colors={[colors.accent]}
+                        />
+                    }
+                    onEndReachedThreshold={0.5}
+                    onEndReached={onEndReached}
+                    ListFooterComponent={
+                        loadingMore ? (
+                            <View style={{ paddingVertical: 16 }}>
+                                <ActivityIndicator color={colors.accent} />
+                            </View>
+                        ) : null
+                    }
+                    ListEmptyComponent={
+                        <View style={{ padding: 24, alignItems: "center" }}>
+                            <Text style={{ color: colors.textMuted }}>
+                                Sem posts por aqui.
+                            </Text>
                         </View>
-                    ) : null
-                }
-                ListEmptyComponent={
-                    <View style={{ padding: 24, alignItems: "center" }}>
-                        <Text>Sem posts por aqui.</Text>
-                    </View>
-                }
-            />
+                    }
+                />
+            </ContentColumn>
 
             <PhotoViewer
                 visible={viewerOpen}
                 uri={user.foto_url}
                 nome={user.nome}
                 onClose={() => setViewerOpen(false)}
+                isOwner={isMe}
+                fotoBusy={fotoBusy}
+                onChangePhoto={() => {
+                    void pickAndUploadFoto();
+                }}
+                onRemovePhoto={confirmRemoveFoto}
             />
 
             <Modal visible={editOpen} animationType="slide" transparent>
-                <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>Editar perfil</Text>
-                        <TextInput
-                            style={styles.input}
+                <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
+                    <View
+                        style={[
+                            styles.modalCard,
+                            {
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border,
+                            },
+                        ]}
+                    >
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>
+                            Editar perfil
+                        </Text>
+                        <TextField
                             placeholder="Nome"
                             value={editNome}
                             onChangeText={setEditNome}
                             editable={!saving}
                         />
-                        <TextInput
-                            style={styles.input}
+                        <TextField
                             placeholder="E-mail"
                             autoCapitalize="none"
                             keyboardType="email-address"
@@ -514,43 +593,62 @@ export default function ProfileScreen({ route }: Props) {
                             onChangeText={setEditEmail}
                             editable={!saving}
                         />
-                        <TextInput
-                            style={styles.input}
+                        <TextField
                             placeholder="Nova senha (opcional)"
                             secureTextEntry
                             value={editSenha}
                             onChangeText={setEditSenha}
                             editable={!saving}
                         />
+                        {editSenha.trim() ? (
+                            <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                                Senha: 8+ chars, maiúscula, número e símbolo
+                            </Text>
+                        ) : null}
                         <View style={styles.modalActions}>
                             <Pressable
                                 onPress={() => setEditOpen(false)}
                                 disabled={saving}
                             >
-                                <Text style={styles.cancel}>Cancelar</Text>
+                                <Text style={[styles.cancel, { color: colors.textMuted }]}>
+                                    Cancelar
+                                </Text>
                             </Pressable>
                             <Button
                                 title={saving ? "Salvando..." : "Salvar"}
                                 onPress={saveEdit}
                                 disabled={saving}
+                                loading={saving}
                             />
                         </View>
                     </View>
                 </View>
             </Modal>
-        </View>
+        </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#fff" },
-    loading: { flex: 1, justifyContent: "center", alignItems: "center" },
-    header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 8 },
+    flex: { flex: 1 },
+    loading: { justifyContent: "center", alignItems: "center" },
+    header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 10 },
+    themeRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 4,
+    },
+    themeLabel: { fontSize: 14, fontWeight: "500" },
+    headerActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
     identityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
     identityText: { flex: 1, minWidth: 0, gap: 2 },
-    name: { fontSize: 22, fontWeight: "700" },
-    email: { color: "#666" },
-    hint: { color: "#888", fontSize: 12, marginTop: 4 },
+    name: { fontSize: 22, fontWeight: "800" },
+    email: { fontSize: 14 },
+    hint: { fontSize: 12, marginTop: 4 },
     avatarBusy: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0,0,0,0.35)",
@@ -565,45 +663,39 @@ const styles = StyleSheet.create({
         marginTop: 4,
         flexWrap: "wrap",
     },
-    counter: { color: "#333" },
-    dot: { color: "#aaa" },
+    counter: { fontSize: 14 },
+    dot: {},
     badge: {
-        marginTop: 6,
+        marginTop: 2,
         alignSelf: "flex-start",
-        backgroundColor: "#eef",
-        color: "#224",
-        paddingHorizontal: 8,
+        paddingHorizontal: 10,
         paddingVertical: 4,
-        borderRadius: 6,
+        borderRadius: 8,
         fontSize: 12,
+        fontWeight: "600",
         overflow: "hidden",
     },
-    actionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+    actionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
     modalBackdrop: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.35)",
         justifyContent: "center",
         padding: 24,
+        alignItems: "center",
     },
     modalCard: {
-        backgroundColor: "#fff",
-        borderRadius: 12,
+        borderRadius: 14,
         padding: 16,
         gap: 10,
-    },
-    modalTitle: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
-    input: {
         borderWidth: 1,
-        borderColor: "#ddd",
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        width: "100%",
+        maxWidth: 400,
     },
+    modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
     modalActions: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         marginTop: 8,
     },
-    cancel: { color: "#555", fontSize: 16, padding: 8 },
+    cancel: { fontSize: 16, padding: 8 },
 });

@@ -20,6 +20,13 @@ describe("resolveMediaUrl", () => {
         expect(resolveMediaUrl("https://cdn.example/a.jpg")).toBe(
             "https://cdn.example/a.jpg"
         );
+        expect(
+            resolveMediaUrl(
+                "https://res.cloudinary.com/demo/image/upload/v1/rocketmail/avatars/user_1.jpg"
+            )
+        ).toBe(
+            "https://res.cloudinary.com/demo/image/upload/v1/rocketmail/avatars/user_1.jpg"
+        );
         expect(resolveMediaUrl("data:image/png;base64,xx")).toBe(
             "data:image/png;base64,xx"
         );

@@ -12,6 +12,7 @@ import type { PostWithLikes } from "../api/posts";
 import { likePost, unlikePost } from "../api/likes";
 import { deletePost } from "../api/posts";
 import { apiErrorMessage } from "../utils/apiError";
+import { useTheme } from "../theme/ThemeContext";
 import Avatar from "./Avatar";
 
 type Props = {
@@ -29,6 +30,7 @@ export default function PostCard({
     onDeleted,
     onLikeChange,
 }: Props) {
+    const { colors } = useTheme();
     const [liking, setLiking] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -94,7 +96,15 @@ export default function PostCard({
     };
 
     return (
-        <View style={styles.card}>
+        <View
+            style={[
+                styles.card,
+                {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                },
+            ]}
+        >
             <Pressable
                 style={styles.headerRow}
                 onPress={goAuthor}
@@ -106,12 +116,16 @@ export default function PostCard({
                     size="sm"
                 />
                 <View style={styles.headerText}>
-                    <Text style={styles.author}>{item.usuario?.nome ?? "Usuário"}</Text>
-                    {when ? <Text style={styles.date}>{when}</Text> : null}
+                    <Text style={[styles.author, { color: colors.text }]}>
+                        {item.usuario?.nome ?? "Usuário"}
+                    </Text>
+                    {when ? (
+                        <Text style={[styles.date, { color: colors.textMuted }]}>{when}</Text>
+                    ) : null}
                 </View>
             </Pressable>
 
-            <Text style={styles.text}>{item.post}</Text>
+            <Text style={[styles.text, { color: colors.text }]}>{item.post}</Text>
 
             <View style={styles.actions}>
                 <Pressable
@@ -121,9 +135,16 @@ export default function PostCard({
                     hitSlop={8}
                 >
                     {liking ? (
-                        <ActivityIndicator size="small" />
+                        <ActivityIndicator size="small" color={colors.like} />
                     ) : (
-                        <Text style={[styles.actionLabel, item.likedByMe && styles.liked]}>
+                        <Text
+                            style={[
+                                styles.actionLabel,
+                                {
+                                    color: item.likedByMe ? colors.like : colors.textMuted,
+                                },
+                            ]}
+                        >
                             {item.likedByMe ? "♥" : "♡"} {item.likeCount}
                         </Text>
                     )}
@@ -137,9 +158,11 @@ export default function PostCard({
                         hitSlop={8}
                     >
                         {deleting ? (
-                            <ActivityIndicator size="small" />
+                            <ActivityIndicator size="small" color={colors.danger} />
                         ) : (
-                            <Text style={styles.deleteLabel}>Excluir</Text>
+                            <Text style={[styles.deleteLabel, { color: colors.danger }]}>
+                                Excluir
+                            </Text>
                         )}
                     </Pressable>
                 ) : null}
@@ -151,21 +174,19 @@ export default function PostCard({
 const styles = StyleSheet.create({
     card: {
         borderWidth: 1,
-        borderColor: "#eee",
-        borderRadius: 12,
-        padding: 12,
-        backgroundColor: "#fff",
+        borderRadius: 14,
+        padding: 14,
     },
     headerRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
-        marginBottom: 8,
+        marginBottom: 10,
     },
     headerText: { flex: 1, minWidth: 0 },
-    author: { fontWeight: "bold", fontSize: 16, color: "#111" },
-    date: { color: "#777", marginTop: 2, fontSize: 12 },
-    text: { fontSize: 16, lineHeight: 22, color: "#222" },
+    author: { fontWeight: "700", fontSize: 15 },
+    date: { marginTop: 2, fontSize: 12 },
+    text: { fontSize: 16, lineHeight: 22 },
     actions: {
         flexDirection: "row",
         alignItems: "center",
@@ -173,7 +194,6 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     actionBtn: { minWidth: 44 },
-    actionLabel: { fontSize: 15, color: "#555" },
-    liked: { color: "#c00" },
-    deleteLabel: { fontSize: 14, color: "#a33" },
+    actionLabel: { fontSize: 15, fontWeight: "600" },
+    deleteLabel: { fontSize: 14, fontWeight: "600" },
 });

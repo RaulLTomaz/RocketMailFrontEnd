@@ -2,9 +2,10 @@ import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { ActivityIndicator, View, Text } from "react-native";
+import { ActivityIndicator, View, Text, StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import HomeScreen from "./src/screens/HomeScreen";
@@ -24,12 +25,18 @@ function useWarmUpServer() {
 }
 
 function MainTabs() {
+    const { colors } = useTheme();
+
     return (
         <Tab.Navigator
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: "#111",
-                tabBarInactiveTintColor: "#888",
+                tabBarActiveTintColor: colors.accent,
+                tabBarInactiveTintColor: colors.textMuted,
+                tabBarStyle: {
+                    backgroundColor: colors.tabBar,
+                    borderTopColor: colors.border,
+                },
             }}
         >
             <Tab.Screen
@@ -68,42 +75,81 @@ function MainTabs() {
 
 function RootNavigator() {
     const { user, loading } = useAuth();
+    const { colors, isDark } = useTheme();
     const isAuth = !!user;
 
     if (loading) {
         return (
-            <View style={{ flex: 1, justifyContent: "center" }}>
-                <ActivityIndicator />
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: colors.background,
+                }}
+            >
+                <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+                <ActivityIndicator color={colors.accent} />
             </View>
         );
     }
 
     if (isAuth) {
         return (
-            <Stack.Navigator>
-                <Stack.Screen
-                    name="MainTabs"
-                    component={MainTabs}
-                    options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                    name="Profile"
-                    component={ProfileScreen}
-                    options={{ headerTitle: "Perfil" }}
-                />
-            </Stack.Navigator>
+            <>
+                <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+                <Stack.Navigator
+                    screenOptions={{
+                        headerStyle: { backgroundColor: colors.surface },
+                        headerTintColor: colors.text,
+                        headerTitleStyle: { fontWeight: "600" },
+                        contentStyle: { backgroundColor: colors.background },
+                    }}
+                >
+                    <Stack.Screen
+                        name="MainTabs"
+                        component={MainTabs}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="Profile"
+                        component={ProfileScreen}
+                        options={{ headerTitle: "Perfil" }}
+                    />
+                </Stack.Navigator>
+            </>
         );
     }
 
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen
-                name="Signup"
-                component={SignupScreen}
-                options={{ headerShown: true, headerTitle: "Criar conta" }}
-            />
-        </Stack.Navigator>
+        <>
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+            <Stack.Navigator
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: colors.background },
+                    headerStyle: { backgroundColor: colors.surface },
+                    headerTintColor: colors.text,
+                }}
+            >
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen
+                    name="Signup"
+                    component={SignupScreen}
+                    options={{ headerShown: true, headerTitle: "Criar conta" }}
+                />
+            </Stack.Navigator>
+        </>
+    );
+}
+
+function AppShell() {
+    const { navigationTheme } = useTheme();
+
+    return (
+        <NavigationContainer theme={navigationTheme}>
+            <RootNavigator />
+        </NavigationContainer>
     );
 }
 
@@ -112,11 +158,11 @@ export default function App() {
 
     return (
         <SafeAreaProvider>
-            <AuthProvider>
-                <NavigationContainer>
-                    <RootNavigator />
-                </NavigationContainer>
-            </AuthProvider>
+            <ThemeProvider>
+                <AuthProvider>
+                    <AppShell />
+                </AuthProvider>
+            </ThemeProvider>
         </SafeAreaProvider>
     );
 }
