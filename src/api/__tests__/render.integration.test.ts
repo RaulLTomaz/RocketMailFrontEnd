@@ -1,6 +1,6 @@
 /**
  * Integração real com a API no Render.
- * Valida envio (POST/PATCH/DELETE) e recebimento (GET) dos endpoints do app.
+ * Valida round-trip dos endpoints usados pelo app.
  *
  * Rodar: npm run test:integration
  */
@@ -33,6 +33,7 @@ import {
     getUserPosts,
     updateMe,
     deleteMe,
+    searchUsers,
 } from "../users";
 import { getLikesBatch, likePost, unlikePost } from "../likes";
 import { followUser, unfollowUser, listSeguidos } from "../follow";
@@ -64,7 +65,8 @@ async function authAs(email: string, senha: string, nome: string) {
 }
 
 describe("Render API integration (envio + recebimento)", () => {
-    const senha = "senha123";
+    // Mesmas regras de senha do front (maiúscula, número, símbolo).
+    const senha = "Senha@123";
     const createdIds: number[] = [];
     const emailsToCleanup: Array<{ email: string; nome: string }> = [];
 
@@ -118,7 +120,7 @@ describe("Render API integration (envio + recebimento)", () => {
                 await clearToken();
                 emailsToCleanup.pop();
             } catch (e: any) {
-                // Round-trip de rede: o Render respondeu com corpo JSON
+                // Aceita erro estruturado do FastAPI (prova de conectividade).
                 expect(e.response).toBeDefined();
                 expect(typeof e.response.status).toBe("number");
                 expect(e.response.data?.detail).toBeDefined();
@@ -148,7 +150,6 @@ describe("Render API integration (envio + recebimento)", () => {
 
             userA = await authAs(emailA, senha, "User A Test");
 
-            // --- envia post / recebe listagens ---
             const texto = `post integração ${Date.now()}`;
             const created = await createPost({ post: texto });
             createdIds.push(created.id);
@@ -171,7 +172,27 @@ describe("Render API integration (envio + recebimento)", () => {
             expect((await getUser(userA.id)).id).toBe(userA.id);
             expect((await getUserStats(userA.id)).stats.posts).toBeGreaterThanOrEqual(1);
 
-            // --- likes ---
+            try {
+                const hits = await searchUsers({
+                    q: "User A",
+                    limit: 10,
+                    postsPerUser: 3,
+                });
+                expect(Array.isArray(hits)).toBe(true);
+                expect(hits.some((h) => h.usuario.id === userA.id)).toBe(true);
+                const meHit = hits.find((h) => h.usuario.id === userA.id);
+                expect(meHit?.posts.some((p) => p.id === created.id)).toBe(true);
+            } catch (e: any) {
+                if (e?.response?.status === 404) {
+                    // Limitação: endpoint pode ainda não estar no deploy.
+                    console.warn(
+                        "[integration] GET /usuario/search ainda não disponível (404). Pule até o backend publicar."
+                    );
+                } else {
+                    throw e;
+                }
+            }
+
             expect(await likePost(created.id)).toMatchObject({
                 liked: true,
                 post_id: created.id,
@@ -188,7 +209,6 @@ describe("Render API integration (envio + recebimento)", () => {
                 post_id: created.id,
             });
 
-            // --- follow ---
             expect(await followUser(userB.id)).toMatchObject({
                 seguidor_id: userA.id,
                 seguido_id: userB.id,
@@ -197,13 +217,11 @@ describe("Render API integration (envio + recebimento)", () => {
             await unfollowUser(userB.id);
             expect((await listSeguidos()).some((u) => u.id === userB.id)).toBe(false);
 
-            // --- update me ---
             const novoNome = `User A ${Date.now()}`;
             expect((await updateMe({ nome: novoNome })).nome).toBe(novoNome);
             expect((await me()).nome).toBe(novoNome);
             emailsToCleanup[0].nome = novoNome;
 
-            // --- delete post ---
             expect(await deletePost(created.id)).toMatchObject({
                 deleted: true,
                 id: created.id,

@@ -18,6 +18,7 @@ import type { MainTabParamList, RootStackParamList } from "./src/types/navigatio
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+/** Acorda o Render (plano free hiberna) antes das telas autenticadas. */
 function useWarmUpServer() {
     useEffect(() => {
         api.get("/healthz").catch(() => {});
@@ -53,7 +54,7 @@ function MainTabs() {
                 name="Explore"
                 component={ExploreScreen}
                 options={{
-                    title: "Explorar",
+                    title: "Procurar",
                     tabBarIcon: ({ color }) => (
                         <Text style={{ color, fontSize: 16 }}>⌕</Text>
                     ),

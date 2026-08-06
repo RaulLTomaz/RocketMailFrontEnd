@@ -196,8 +196,7 @@ export default function HomeScreen() {
                             accessibilityLabel="RocketMail"
                         />
                         <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={[styles.title, { color: colors.text }]}>Feed</Text>
-                            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                            <Text style={[styles.title, { color: colors.text }]}>
                                 Olá, {user.nome}
                             </Text>
                         </View>
@@ -314,7 +313,6 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     title: { fontSize: 22, fontWeight: "800" },
-    subtitle: { marginTop: 2, fontSize: 13 },
     composer: {
         gap: 8,
         marginTop: 8,

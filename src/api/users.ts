@@ -5,7 +5,7 @@ export type UsuarioOut = {
     id: number;
     nome: string;
     email: string;
-    /** Presente quando o backend expuser foto de perfil */
+    /** Opcional: backend pode ainda não expor foto de perfil. */
     foto_url?: string | null;
 };
 
@@ -49,6 +49,33 @@ export async function getUserPosts(
     return res.data;
 }
 
+export type UsuarioSearchHit = {
+    usuario: UsuarioOut;
+    posts: Post[];
+};
+
+/**
+ * Busca usuários por nome.
+ * No FastAPI, esta rota precisa ser registrada antes de `/{usuario_id}`,
+ * senão "search" é interpretado como id.
+ */
+export async function searchUsers(params: {
+    q: string;
+    limit?: number;
+    postsPerUser?: number;
+    signal?: AbortSignal;
+}): Promise<UsuarioSearchHit[]> {
+    const res = await api.get<UsuarioSearchHit[]>("/usuario/search", {
+        params: {
+            q: params.q,
+            limit: params.limit ?? 20,
+            posts_per_user: params.postsPerUser ?? 5,
+        },
+        signal: params.signal,
+    });
+    return res.data;
+}
+
 export async function updateMe(payload: UsuarioUpdate): Promise<UsuarioOut> {
     const res = await api.patch<UsuarioOut>("/usuario/me", payload);
     return res.data;
@@ -65,7 +92,7 @@ export type UploadFotoInput = {
     type?: string;
 };
 
-/** POST multipart /usuario/me/foto — campo `file`. */
+/** Upload multipart; campo do form deve se chamar `file`. */
 export async function uploadFoto(file: UploadFotoInput): Promise<UsuarioOut> {
     const form = new FormData();
     const name = file.name || guessName(file.uri, file.type);
@@ -78,7 +105,7 @@ export async function uploadFoto(file: UploadFotoInput): Promise<UsuarioOut> {
     ) {
         const blob = await fetch(file.uri).then((r) => r.blob());
         const mime = type || blob.type || "image/jpeg";
-        // File ajuda o boundary multipart no browser (FormData + Blob puro às vezes falha)
+        // No browser, `File` gera boundary multipart confiável; Blob puro às vezes falha.
         if (typeof File !== "undefined") {
             form.append("file", new File([blob], name, { type: mime }));
         } else {
@@ -96,7 +123,7 @@ export async function uploadFoto(file: UploadFotoInput): Promise<UsuarioOut> {
         timeout: 90_000,
         headers: {
             Accept: "application/json",
-            // deixa o browser definir multipart boundary
+            // Sem Content-Type fixo: o runtime define o boundary do multipart.
             "Content-Type": undefined as unknown as string,
         },
         transformRequest: [
