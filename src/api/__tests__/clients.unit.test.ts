@@ -12,6 +12,9 @@ import {
     getUserPosts,
     updateMe,
     deleteMe,
+    searchUsers,
+    deleteFoto,
+    uploadFoto,
 } from "../users";
 import { likePost, unlikePost, getLikesBatch } from "../likes";
 import { followUser, unfollowUser, listSeguidos } from "../follow";
@@ -177,6 +180,95 @@ describe("API clients (unit / mocked)", () => {
                 nome: "Nova",
             });
             expect(mockedApi.delete).toHaveBeenCalledWith("/usuario/me");
+        });
+
+        it("searchUsers chama /usuario/search com q e limites", async () => {
+            mockedApi.get.mockResolvedValue({
+                data: [
+                    {
+                        usuario: {
+                            id: 2,
+                            nome: "Bob",
+                            email: "b@b.com",
+                            foto_url: null,
+                        },
+                        posts: [],
+                    },
+                ],
+            });
+
+            const hits = await searchUsers({
+                q: "bob",
+                limit: 10,
+                postsPerUser: 3,
+            });
+
+            expect(hits).toHaveLength(1);
+            expect(hits[0].usuario.nome).toBe("Bob");
+            expect(mockedApi.get).toHaveBeenCalledWith(
+                "/usuario/search",
+                expect.objectContaining({
+                    params: {
+                        q: "bob",
+                        limit: 10,
+                        posts_per_user: 3,
+                    },
+                })
+            );
+        });
+
+        it("searchUsers usa defaults limit=20 e posts_per_user=5", async () => {
+            mockedApi.get.mockResolvedValue({ data: [] });
+            await searchUsers({ q: "ana" });
+            expect(mockedApi.get).toHaveBeenCalledWith(
+                "/usuario/search",
+                expect.objectContaining({
+                    params: { q: "ana", limit: 20, posts_per_user: 5 },
+                })
+            );
+        });
+
+        it("deleteFoto chama DELETE /usuario/me/foto", async () => {
+            mockedApi.delete.mockResolvedValue({
+                data: { id: 1, nome: "Ana", email: "a@b.com", foto_url: null },
+            });
+            const u = await deleteFoto();
+            expect(u.foto_url).toBeNull();
+            expect(mockedApi.delete).toHaveBeenCalledWith("/usuario/me/foto");
+        });
+
+        it("uploadFoto envia multipart POST /usuario/me/foto", async () => {
+            const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+            const blob = new Blob([png], { type: "image/png" });
+            global.fetch = jest.fn().mockResolvedValue({
+                blob: async () => blob,
+            }) as any;
+
+            mockedApi.post.mockResolvedValue({
+                data: {
+                    id: 1,
+                    nome: "Ana",
+                    email: "a@b.com",
+                    foto_url: "https://res.cloudinary.com/demo/avatar.png",
+                },
+            });
+
+            const updated = await uploadFoto({
+                uri: "blob:http://localhost/fake",
+                name: "avatar.png",
+                type: "image/png",
+            });
+
+            expect(updated.foto_url).toContain("cloudinary");
+            expect(mockedApi.post).toHaveBeenCalledWith(
+                "/usuario/me/foto",
+                expect.any(FormData),
+                expect.objectContaining({
+                    timeout: 90_000,
+                })
+            );
+            const form = mockedApi.post.mock.calls[0][1] as FormData;
+            expect(form).toBeInstanceOf(FormData);
         });
     });
 
