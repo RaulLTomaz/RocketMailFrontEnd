@@ -87,31 +87,36 @@ export default function SignupScreen({ navigation }: any) {
 
                         <Text style={[styles.title, { color: colors.text }]}>Criar conta</Text>
 
-                        <TextField
-                            placeholder="Nome"
-                            value={nome}
-                            onChangeText={setNome}
-                            editable={!loading}
-                        />
+                        <View style={styles.fields}>
+                            <TextField
+                                placeholder="Nome"
+                                value={nome}
+                                onChangeText={setNome}
+                                editable={!loading}
+                                style={styles.field}
+                            />
 
-                        <TextField
-                            placeholder="E-mail"
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            value={email}
-                            onChangeText={setEmail}
-                            editable={!loading}
-                            autoComplete="email"
-                        />
+                            <TextField
+                                placeholder="E-mail"
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                                value={email}
+                                onChangeText={setEmail}
+                                editable={!loading}
+                                autoComplete="email"
+                                style={styles.field}
+                            />
 
-                        <TextField
-                            placeholder="Senha"
-                            secureTextEntry
-                            value={senha}
-                            onChangeText={setSenha}
-                            editable={!loading}
-                            autoComplete="password-new"
-                        />
+                            <TextField
+                                placeholder="Senha"
+                                secureTextEntry
+                                value={senha}
+                                onChangeText={setSenha}
+                                editable={!loading}
+                                autoComplete="password-new"
+                                style={styles.field}
+                            />
+                        </View>
 
                         <View style={styles.rules}>
                             <RuleOk
@@ -201,7 +206,13 @@ const styles = StyleSheet.create({
     },
     column: {
         gap: 18,
-        alignSelf: "center",
+        width: "100%",
+    },
+    fields: {
+        width: "100%",
+    },
+    field: {
+        marginBottom: 14,
     },
     brand: {
         alignItems: "center",

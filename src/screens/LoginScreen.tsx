@@ -77,24 +77,28 @@ export default function LoginScreen({ navigation }: Props) {
 
                         <Text style={[styles.title, { color: colors.text }]}>Entrar</Text>
 
-                        <TextField
-                            placeholder="E-mail"
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            value={email}
-                            onChangeText={setEmail}
-                            editable={!loading}
-                            autoComplete="email"
-                        />
+                        <View style={styles.fields}>
+                            <TextField
+                                placeholder="E-mail"
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                                value={email}
+                                onChangeText={setEmail}
+                                editable={!loading}
+                                autoComplete="email"
+                                style={styles.field}
+                            />
 
-                        <TextField
-                            placeholder="Senha"
-                            secureTextEntry
-                            value={senha}
-                            onChangeText={setSenha}
-                            editable={!loading}
-                            autoComplete="password"
-                        />
+                            <TextField
+                                placeholder="Senha"
+                                secureTextEntry
+                                value={senha}
+                                onChangeText={setSenha}
+                                editable={!loading}
+                                autoComplete="password"
+                                style={styles.field}
+                            />
+                        </View>
 
                         {err ? (
                             <Text style={[styles.error, { color: colors.danger }]}>{err}</Text>
@@ -140,7 +144,13 @@ const styles = StyleSheet.create({
     },
     column: {
         gap: 18,
-        alignSelf: "center",
+        width: "100%",
+    },
+    fields: {
+        width: "100%",
+    },
+    field: {
+        marginBottom: 14,
     },
     brand: {
         alignItems: "center",

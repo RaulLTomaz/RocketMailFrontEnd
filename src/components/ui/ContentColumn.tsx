@@ -24,8 +24,9 @@ export default function ContentColumn({
     fill = true,
 }: Props) {
     return (
-        <View style={[styles.outer, fill && styles.fill, style]}>
-            <View style={[styles.inner, fill && styles.fill, { maxWidth }]}>
+        <View style={[styles.outer, fill && styles.fill]}>
+            {/* `style` no inner: gap/padding precisam valer nos filhos, não no wrapper. */}
+            <View style={[styles.inner, fill && styles.fill, { maxWidth }, style]}>
                 {children}
             </View>
         </View>
