@@ -15,7 +15,7 @@ type Size = "sm" | "md" | "lg";
 
 type Props = {
     nome?: string | null;
-    /** URL da foto (absoluta ou relativa `/media/...`) */
+    /** Absoluta ou relativa (`/media/...`); relativa é resolvida via API. */
     uri?: string | null;
     size?: Size;
     style?: StyleProp<ViewStyle | ImageStyle>;
@@ -43,7 +43,6 @@ function colorFromName(nome?: string | null): string {
     return PALETTE[Math.abs(hash) % PALETTE.length];
 }
 
-/** Avatar com foto ou placeholder de iniciais. */
 export default function Avatar({ nome, uri, size = "sm", style }: Props) {
     const { colors } = useTheme();
     const dim = SIZES[size];

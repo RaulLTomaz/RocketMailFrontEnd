@@ -6,7 +6,7 @@ const API_URL =
     process.env.API_URL ||
     "http://localhost:8000";
 
-/** Converte `/media/...` relativo na URL absoluta da API. */
+/** Paths relativos (`/media/...`) precisam do host da API; URLs absolutas passam direto. */
 export function resolveMediaUrl(url?: string | null): string | null {
     if (!url) return null;
     const trimmed = url.trim();

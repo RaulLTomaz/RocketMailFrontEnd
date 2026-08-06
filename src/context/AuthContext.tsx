@@ -48,29 +48,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
-    const hydrate = async () => {
-        try {
-            const token = await getToken();
-            if (!token) return;
-            const me = await apiMe();
-            setUser(me);
-            await refreshFollowing();
-        } catch {
-            try {
-                await clearToken();
-            } catch {}
-            setUser(null);
-            setFollowingIds(new Set());
-        }
-    };
-
     useEffect(() => {
+        let cancelled = false;
+
         (async () => {
-            await hydrate();
-            setLoading(false);
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const me = await apiMe();
+                if (cancelled) return;
+                setUser(me);
+                await refreshFollowing();
+            } catch {
+                try {
+                    await clearToken();
+                } catch {}
+                if (!cancelled) {
+                    setUser(null);
+                    setFollowingIds(new Set());
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         })();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [refreshFollowing]);
 
     const signIn = useCallback(
         async ({ email, senha }: { email: string; senha: string }) => {

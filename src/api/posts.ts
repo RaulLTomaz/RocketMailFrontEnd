@@ -3,7 +3,7 @@ import { api } from "./client";
 export type UsuarioSimples = {
     id: number;
     nome: string;
-    /** Presente quando o backend expuser foto de perfil */
+    /** Opcional: backend pode ainda não expor foto de perfil. */
     foto_url?: string | null;
 };
 
@@ -14,7 +14,7 @@ export type Post = {
     usuario: UsuarioSimples;
 };
 
-/** Post com metadados de like mesclados no client */
+/** Post enriquecido no client via `attachLikes` (API de posts não inclui likes). */
 export type PostWithLikes = Post & {
     likeCount: number;
     likedByMe: boolean;

@@ -8,7 +8,7 @@ import ProfileScreen from "./ProfileScreen";
 import type { RootStackParamList } from "../types/navigation";
 import Screen from "../components/ui/Screen";
 
-/** Aba "Perfil": reutiliza ProfileScreen com o usuário autenticado. */
+/** Aba Perfil: reusa ProfileScreen com o usuário autenticado (evita duplicar a tela). */
 export default function MyProfileScreen() {
     const { user } = useAuth();
     const { colors } = useTheme();

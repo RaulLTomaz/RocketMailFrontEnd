@@ -197,7 +197,7 @@ export default function ProfileScreen({ route }: Props) {
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ["images"],
-            // sem crop circular/quadrado — envia a foto completa
+            // Sem crop: o usuário envia a foto completa (crop nativo distorce o avatar).
             allowsEditing: false,
             quality: 0.85,
         });

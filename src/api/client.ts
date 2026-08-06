@@ -2,7 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import Constants from "expo-constants";
 import { getToken, clearToken } from "../utils/storage";
 
-// handler para 401 (registrado pelo AuthContext)
+/** Callback de 401 — AuthContext registra `signOut` aqui. */
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: () => void) {
     onUnauthorized = fn;
@@ -10,7 +10,7 @@ export function setUnauthorizedHandler(fn: () => void) {
 
 const API_URL =
     (Constants.expoConfig?.extra as any)?.API_URL ||
-    process.env.EXPO_PUBLIC_API_URL || // aceita as duas
+    process.env.EXPO_PUBLIC_API_URL ||
     process.env.API_URL ||
     "http://localhost:8000";
 
@@ -35,9 +35,6 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     if (token) {
         config.headers = config.headers ?? {};
         (config.headers as any).Authorization = `Bearer ${token}`;
-        // console.log("[API] auth header set"); // debug opcional
-    } else {
-        // console.log("[API] sem token no request"); // debug opcional
     }
 
     const method = (config.method ?? "get").toUpperCase();

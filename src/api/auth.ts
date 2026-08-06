@@ -24,6 +24,7 @@ export type UsuarioOut = {
 };
 
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
+    // OAuth2 password flow: o campo do form é `username`, mesmo com login por e-mail.
     const form = new URLSearchParams();
     form.append("username", payload.email);
     form.append("password", payload.senha);

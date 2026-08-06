@@ -7,7 +7,7 @@ type Props = ViewProps & {
     children: React.ReactNode;
     style?: StyleProp<ViewStyle>;
     edges?: ("top" | "right" | "bottom" | "left")[];
-    /** When false, uses plain View (e.g. nested under another SafeArea). */
+    /** `false` evita SafeArea aninhada (ex.: já dentro de outro Screen). */
     safe?: boolean;
 };
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, StyleProp, ViewStyle, useWindowDimensions } from "react-native";
+import { StyleSheet, View, StyleProp, ViewStyle } from "react-native";
 
 export const CONTENT_MAX_WIDTH = 560;
 export const AUTH_MAX_WIDTH = 400;
@@ -7,25 +7,25 @@ export const AUTH_MAX_WIDTH = 400;
 type Props = {
     children: React.ReactNode;
     style?: StyleProp<ViewStyle>;
-    /** Default 560; use AUTH_MAX_WIDTH for login/signup. */
+    /** Padrão 560; use `AUTH_MAX_WIDTH` em login/cadastro. */
     maxWidth?: number;
-    /** When true (default), fills parent height — use false inside ScrollView forms. */
+    /**
+     * Com `true` (padrão), ocupa a altura do pai.
+     * Use `false` dentro de formulários com ScrollView.
+     */
     fill?: boolean;
 };
 
-/** Centraliza o conteúdo e limita a largura em telas grandes (web). */
+/** Limita largura e centraliza conteúdo em viewports largas (web). */
 export default function ContentColumn({
     children,
     style,
     maxWidth = CONTENT_MAX_WIDTH,
     fill = true,
 }: Props) {
-    const { width } = useWindowDimensions();
-    const capped = Math.min(width, maxWidth);
-
     return (
         <View style={[styles.outer, fill && styles.fill, style]}>
-            <View style={[styles.inner, fill && styles.fill, { width: capped, maxWidth }]}>
+            <View style={[styles.inner, fill && styles.fill, { maxWidth }]}>
                 {children}
             </View>
         </View>

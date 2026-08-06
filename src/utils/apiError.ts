@@ -1,4 +1,4 @@
-/** Normaliza `detail` do FastAPI (string ou lista de validação) para texto seguro na UI. */
+/** FastAPI devolve `detail` como string ou lista de validação — unifica para texto na UI. */
 export function apiErrorMessage(error: unknown, fallback = "Algo deu errado"): string {
     const e = error as {
         message?: string;

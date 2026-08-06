@@ -6,7 +6,6 @@ type Props = {
     size?: "sm" | "md";
 };
 
-/** Toggle entre tema claro e escuro, com rótulo do tema atual. */
 export default function ThemeToggle({ size = "md" }: Props) {
     const { mode, colors, toggleTheme } = useTheme();
     const isDark = mode === "dark";

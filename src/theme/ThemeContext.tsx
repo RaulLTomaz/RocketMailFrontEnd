@@ -25,12 +25,23 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function buildNavTheme(mode: ThemeMode, colors: ThemeColors): NavTheme {
-    const base = mode === "dark" ? DarkTheme : DefaultTheme;
+    const base = (mode === "dark" ? DarkTheme : DefaultTheme) || {};
+    const baseColors =
+        (base as Partial<NavTheme>).colors ??
+        ({
+            primary: colors.accent,
+            background: colors.background,
+            card: colors.surface,
+            text: colors.text,
+            border: colors.border,
+            notification: colors.like,
+        } as NavTheme["colors"]);
+
     return {
-        ...base,
+        ...(base as object),
         dark: mode === "dark",
         colors: {
-            ...base.colors,
+            ...baseColors,
             primary: colors.accent,
             background: colors.background,
             card: colors.surface,
@@ -38,7 +49,7 @@ function buildNavTheme(mode: ThemeMode, colors: ThemeColors): NavTheme {
             border: colors.border,
             notification: colors.like,
         },
-    };
+    } as NavTheme;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -54,7 +65,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                     setModeState(saved);
                 }
             } catch {
-                // keep default dark
+                // Mantém o tema escuro padrão se a leitura do storage falhar.
             } finally {
                 if (!cancelled) setReady(true);
             }

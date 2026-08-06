@@ -1,4 +1,3 @@
-/** Regras básicas de senha no cadastro / troca. */
 export type PasswordCheck = {
     ok: boolean;
     message: string | null;

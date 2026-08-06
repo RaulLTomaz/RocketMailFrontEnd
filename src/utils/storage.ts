@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const TOKEN_KEY = "rocketmail_token";
 
+/** Web: AsyncStorage. Native: SecureStore (SecureStore não está disponível na web). */
 export async function saveToken(token: string): Promise<void> {
     if (Platform.OS === "web") {
         await AsyncStorage.setItem(TOKEN_KEY, token);

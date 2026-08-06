@@ -18,14 +18,13 @@ type Props = {
     uri?: string | null;
     nome?: string | null;
     onClose: () => void;
-    /** Dono do perfil: mostra ações de alterar/remover/adicionar. */
+    /** Ações de foto ficam só no viewer e só para o dono do perfil. */
     isOwner?: boolean;
     fotoBusy?: boolean;
     onChangePhoto?: () => void;
     onRemovePhoto?: () => void;
 };
 
-/** Visualização em tela cheia da foto de perfil (+ ações do dono). */
 export default function PhotoViewer({
     visible,
     uri,
