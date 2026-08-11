@@ -35,3 +35,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# dumps locais de probe da API (não versionar)
+healthz.json
+search.json
+u1.json
