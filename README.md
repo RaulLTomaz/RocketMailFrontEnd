@@ -16,7 +16,7 @@ Mobile frontend application for RocketMail, a social platform inspired by Twitte
 * User authentication interface
 * Feed visualization
 * Mobile-first interface
-* API integration with FastAPI backend
+* API integration with Django backend
 * Responsive mobile navigation
 * Modular component structure
 
@@ -46,10 +46,12 @@ Start the project:
 npx expo start
 ```
 
-## 🔗 Backend Repository
+## 🔗 Backend
 
-Backend project:
-https://github.com/RaulLTomaz/RocketMailBackEnd
+API (Django, Render):
+https://rocketmail-django.onrender.com
+
+Health check: `GET /healthz`
 
 ## 👨‍💻 Author
 

@@ -1,4 +1,4 @@
-/** FastAPI devolve `detail` como string ou lista de validação — unifica para texto na UI. */
+/** A API devolve `detail` como string ou lista de validação — unifica para texto na UI. */
 export function apiErrorMessage(error: unknown, fallback = "Algo deu errado"): string {
     const e = error as {
         message?: string;

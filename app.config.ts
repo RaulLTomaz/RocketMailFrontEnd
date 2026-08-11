@@ -7,6 +7,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     slug: config.slug ?? "RocketMailApp",
     extra: {
         ...(config.extra ?? {}),
-        API_URL: process.env.API_URL,
+        API_URL: process.env.API_URL || process.env.EXPO_PUBLIC_API_URL,
     },
 });

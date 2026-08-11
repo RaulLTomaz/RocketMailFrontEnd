@@ -12,13 +12,14 @@ const API_URL =
     (Constants.expoConfig?.extra as any)?.API_URL ||
     process.env.EXPO_PUBLIC_API_URL ||
     process.env.API_URL ||
-    "http://localhost:8000";
+    "https://rocketmail-django.onrender.com";
 
 console.log("[API] baseURL =", API_URL);
 
 export const api = axios.create({
     baseURL: API_URL,
-    timeout: 30000,
+    // Render free hiberna; 30s falha no cold start mesmo com /healthz.
+    timeout: 60000,
 });
 
 function buildFullUrl(config: InternalAxiosRequestConfig): string {

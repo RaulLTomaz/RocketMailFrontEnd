@@ -56,7 +56,7 @@ export type UsuarioSearchHit = {
 
 /**
  * Busca usuários por nome.
- * No FastAPI, esta rota precisa ser registrada antes de `/{usuario_id}`,
+ * A rota `/usuario/search` precisa existir antes de `/usuario/{id}`,
  * senão "search" é interpretado como id.
  */
 export async function searchUsers(params: {

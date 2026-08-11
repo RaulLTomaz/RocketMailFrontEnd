@@ -4,7 +4,7 @@ const API_URL =
     (Constants.expoConfig?.extra as any)?.API_URL ||
     process.env.EXPO_PUBLIC_API_URL ||
     process.env.API_URL ||
-    "http://localhost:8000";
+    "https://rocketmail-django.onrender.com";
 
 /** Paths relativos (`/media/...`) precisam do host da API; URLs absolutas passam direto. */
 export function resolveMediaUrl(url?: string | null): string | null {
