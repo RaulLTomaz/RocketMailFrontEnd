@@ -53,6 +53,16 @@ https://rocketmail-django.onrender.com
 
 Health check: `GET /healthz`
 
+No Vercel, defina (ou remova a URL antiga do FastAPI):
+
+```
+API_URL=https://rocketmail-django.onrender.com
+EXPO_PUBLIC_API_URL=https://rocketmail-django.onrender.com
+```
+
+O app **ignora** `rocketmail-api.onrender.com` mesmo se ainda estiver na env do deploy.
+
+
 ## 👨‍💻 Author
 
 Raul Lopes Tomaz

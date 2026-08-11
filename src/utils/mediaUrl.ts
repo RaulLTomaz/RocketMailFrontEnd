@@ -1,10 +1,11 @@
 import Constants from "expo-constants";
+import { resolveApiUrl } from "../config/api";
 
-const API_URL =
-    (Constants.expoConfig?.extra as any)?.API_URL ||
-    process.env.EXPO_PUBLIC_API_URL ||
-    process.env.API_URL ||
-    "https://rocketmail-django.onrender.com";
+const API_URL = resolveApiUrl([
+    (Constants.expoConfig?.extra as { API_URL?: string } | undefined)?.API_URL,
+    process.env.EXPO_PUBLIC_API_URL,
+    process.env.API_URL,
+]);
 
 /** Paths relativos (`/media/...`) precisam do host da API; URLs absolutas passam direto. */
 export function resolveMediaUrl(url?: string | null): string | null {
