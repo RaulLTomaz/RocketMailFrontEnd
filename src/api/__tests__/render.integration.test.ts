@@ -5,6 +5,8 @@
  * Rodar: npm run test:integration
  */
 
+jest.unmock("axios");
+
 const tokenStore: { value: string | null } = { value: null };
 
 jest.mock("../../utils/storage", () => ({
@@ -40,7 +42,7 @@ import { followUser, unfollowUser, listSeguidos } from "../follow";
 import { attachLikes } from "../attachLikes";
 
 const API_URL =
-    process.env.API_URL || "https://rocketmail-api.onrender.com";
+    process.env.API_URL || "https://rocketmail-django.onrender.com";
 
 function uniqueEmail(prefix: string) {
     return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@gmail.com`;
@@ -120,7 +122,7 @@ describe("Render API integration (envio + recebimento)", () => {
                 await clearToken();
                 emailsToCleanup.pop();
             } catch (e: any) {
-                // Aceita erro estruturado do FastAPI (prova de conectividade).
+                // Aceita erro estruturado da API (prova de conectividade).
                 expect(e.response).toBeDefined();
                 expect(typeof e.response.status).toBe("number");
                 expect(e.response.data?.detail).toBeDefined();
@@ -144,7 +146,7 @@ describe("Render API integration (envio + recebimento)", () => {
                 emailsToCleanup.push({ email: emailB, nome: "User B Test" });
             } catch (e: any) {
                 throw new Error(
-                    `Signup/login no Render falhou — faça deploy do fix em rocketmail-backend/app/crud/usuario.py. Detalhe: ${e?.message ?? e}`
+                    `Signup/login no Render falhou. Detalhe: ${e?.message ?? e}`
                 );
             }
 

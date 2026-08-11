@@ -4,7 +4,7 @@ jest.mock("expo-constants", () => ({
     __esModule: true,
     default: {
         expoConfig: {
-            extra: { API_URL: "https://rocketmail-api.onrender.com" },
+            extra: { API_URL: "https://rocketmail-django.onrender.com" },
         },
     },
 }));
@@ -34,7 +34,7 @@ describe("resolveMediaUrl", () => {
 
     it("prefixa path relativo com API_URL", () => {
         expect(resolveMediaUrl("/media/avatars/user_1.png")).toBe(
-            "https://rocketmail-api.onrender.com/media/avatars/user_1.png"
+            "https://rocketmail-django.onrender.com/media/avatars/user_1.png"
         );
     });
 });

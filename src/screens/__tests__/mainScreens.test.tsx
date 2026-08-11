@@ -2,6 +2,16 @@ import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import { ThemeProvider } from "../../theme/ThemeContext";
 
+jest.mock("../../api/client", () => ({
+    api: {
+        get: jest.fn(async () => ({ data: [] })),
+        post: jest.fn(),
+        patch: jest.fn(),
+        delete: jest.fn(),
+    },
+    setUnauthorizedHandler: jest.fn(),
+}));
+
 jest.mock("../../api/posts", () => ({
     listPosts: jest.fn(async () => []),
     listFeed: jest.fn(async () => []),

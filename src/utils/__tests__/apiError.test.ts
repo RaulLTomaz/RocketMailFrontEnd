@@ -1,13 +1,13 @@
 import { apiErrorMessage } from "../apiError";
 
 describe("apiErrorMessage", () => {
-    it("retorna detail string do FastAPI", () => {
+    it("retorna detail string da API", () => {
         expect(
             apiErrorMessage({ response: { data: { detail: "Credenciais inválidas" } } })
         ).toBe("Credenciais inválidas");
     });
 
-    it("normaliza lista de validação do FastAPI", () => {
+    it("normaliza lista de validação da API", () => {
         expect(
             apiErrorMessage({
                 response: {

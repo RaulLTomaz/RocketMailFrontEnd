@@ -1,5 +1,40 @@
 process.env.API_URL =
-    process.env.API_URL || "https://rocketmail-api.onrender.com";
+    process.env.API_URL || "https://rocketmail-django.onrender.com";
+
+// Unitários não batem no Render. Integração usa axios real.
+jest.mock("axios", () => {
+    const testPath = expect.getState().testPath || "";
+    if (/integration/i.test(testPath)) {
+        return jest.requireActual("axios");
+    }
+
+    const mockAxios: {
+        create: () => unknown;
+        get: jest.Mock;
+        post: jest.Mock;
+        patch: jest.Mock;
+        delete: jest.Mock;
+        interceptors: {
+            request: { use: jest.Mock };
+            response: { use: jest.Mock };
+        };
+        defaults: { timeout: number; baseURL: string };
+    } = {
+        create() {
+            return mockAxios;
+        },
+        get: jest.fn(async () => ({ data: [], status: 200, config: {} })),
+        post: jest.fn(async () => ({ data: {}, status: 200, config: {} })),
+        patch: jest.fn(async () => ({ data: {}, status: 200, config: {} })),
+        delete: jest.fn(async () => ({ data: {}, status: 200, config: {} })),
+        interceptors: {
+            request: { use: jest.fn() },
+            response: { use: jest.fn() },
+        },
+        defaults: { timeout: 0, baseURL: "" },
+    };
+    return { __esModule: true, default: mockAxios };
+});
 
 jest.mock("expo-constants", () => ({
     __esModule: true,
