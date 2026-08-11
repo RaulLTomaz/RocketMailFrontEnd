@@ -1,7 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import Constants from "expo-constants";
 import { getToken, clearToken } from "../utils/storage";
-import { resolveApiUrl } from "../config/api";
+import { API_BASE_URL } from "../config/api";
 
 /** Callback de 401 — AuthContext registra `signOut` aqui. */
 let onUnauthorized: (() => void) | null = null;
@@ -9,11 +8,7 @@ export function setUnauthorizedHandler(fn: () => void) {
     onUnauthorized = fn;
 }
 
-const API_URL = resolveApiUrl([
-    (Constants.expoConfig?.extra as { API_URL?: string } | undefined)?.API_URL,
-    process.env.EXPO_PUBLIC_API_URL,
-    process.env.API_URL,
-]);
+const API_URL = API_BASE_URL;
 
 console.log("[API] baseURL =", API_URL);
 

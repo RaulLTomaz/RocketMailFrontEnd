@@ -1,11 +1,4 @@
-import Constants from "expo-constants";
-import { resolveApiUrl } from "../config/api";
-
-const API_URL = resolveApiUrl([
-    (Constants.expoConfig?.extra as { API_URL?: string } | undefined)?.API_URL,
-    process.env.EXPO_PUBLIC_API_URL,
-    process.env.API_URL,
-]);
+import { API_BASE_URL } from "../config/api";
 
 /** Paths relativos (`/media/...`) precisam do host da API; URLs absolutas passam direto. */
 export function resolveMediaUrl(url?: string | null): string | null {
@@ -15,7 +8,7 @@ export function resolveMediaUrl(url?: string | null): string | null {
     if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:")) {
         return trimmed;
     }
-    const base = API_URL.replace(/\/+$/, "");
+    const base = API_BASE_URL.replace(/\/+$/, "");
     const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
     return `${base}${path}`;
 }

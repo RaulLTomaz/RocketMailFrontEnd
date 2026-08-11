@@ -41,8 +41,7 @@ import { getLikesBatch, likePost, unlikePost } from "../likes";
 import { followUser, unfollowUser, listSeguidos } from "../follow";
 import { attachLikes } from "../attachLikes";
 
-const API_URL =
-    process.env.API_URL || "https://rocketmail-django.onrender.com";
+const API_URL = "https://rocketmail-django.onrender.com";
 
 function uniqueEmail(prefix: string) {
     return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@gmail.com`;

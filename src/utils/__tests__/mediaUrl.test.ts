@@ -1,13 +1,5 @@
 import { resolveMediaUrl } from "../mediaUrl";
-
-jest.mock("expo-constants", () => ({
-    __esModule: true,
-    default: {
-        expoConfig: {
-            extra: { API_URL: "https://rocketmail-django.onrender.com" },
-        },
-    },
-}));
+import { API_BASE_URL } from "../../config/api";
 
 describe("resolveMediaUrl", () => {
     it("retorna null para vazio", () => {
@@ -32,9 +24,9 @@ describe("resolveMediaUrl", () => {
         );
     });
 
-    it("prefixa path relativo com API_URL", () => {
+    it("prefixa path relativo com a API Django", () => {
         expect(resolveMediaUrl("/media/avatars/user_1.png")).toBe(
-            "https://rocketmail-django.onrender.com/media/avatars/user_1.png"
+            `${API_BASE_URL}/media/avatars/user_1.png`
         );
     });
 });

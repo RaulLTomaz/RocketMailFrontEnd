@@ -1,7 +1,5 @@
-process.env.API_URL =
-    process.env.API_URL || "https://rocketmail-django.onrender.com";
-process.env.EXPO_PUBLIC_API_URL =
-    process.env.EXPO_PUBLIC_API_URL || process.env.API_URL;
+process.env.API_URL = "https://rocketmail-django.onrender.com";
+process.env.EXPO_PUBLIC_API_URL = "https://rocketmail-django.onrender.com";
 
 // Unitários não batem no Render. Integração usa axios real.
 jest.mock("axios", () => {

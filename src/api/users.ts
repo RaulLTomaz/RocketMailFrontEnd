@@ -56,7 +56,7 @@ export type UsuarioSearchHit = {
 
 /**
  * Busca usuários por nome.
- * A rota `/usuario/search` precisa existir antes de `/usuario/{id}`,
+ * No Django, a rota `/usuario/search` precisa existir antes de `/usuario/<id>`,
  * senão "search" é interpretado como id.
  */
 export async function searchUsers(params: {

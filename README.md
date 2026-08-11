@@ -1,71 +1,78 @@
 # RocketMail FrontEnd
 
-Mobile frontend application for RocketMail, a social platform inspired by Twitter/X, developed with React Native.
+Frontend mobile/web do RocketMail (clone de X), feito com React Native + Expo.
 
-## 🚀 Technologies
+## Tecnologias
 
-* React Native
-* JavaScript
-* Expo
-* REST API Integration
+* React Native / Expo
 * React Navigation
-* Git
+* Axios (API Django)
+* Jest + Testing Library
 
-## 📌 Features
+## Backend
 
-* User authentication interface
-* Feed visualization
-* Mobile-first interface
-* API integration with Django backend
-* Responsive mobile navigation
-* Modular component structure
+API Django no Render:
 
-## 🧠 Project Purpose
-
-RocketMail was created as a practical mobile development and full-stack integration project focused on React Native application architecture and API communication.
-
-The project aims to improve hands-on experience with mobile development, backend integration, and scalable application structure.
-
-## ⚙️ Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/RaulLTomaz/RocketMailFrontEnd
 ```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Start the project:
-
-```bash
-npx expo start
-```
-
-## 🔗 Backend
-
-API (Django, Render):
 https://rocketmail-django.onrender.com
+```
 
 Health check: `GET /healthz`
 
-No Vercel, defina (ou remova a URL antiga do FastAPI):
+O app usa **somente** essa API. A API FastAPI antiga (`rocketmail-api`) foi descontinuada.
+
+## Instalação
+
+```bash
+git clone https://github.com/RaulLTomaz/RocketMailFrontEnd
+cd RocketMailFrontEnd
+npm install
+```
+
+Copie o exemplo de env (opcional — a URL Django já está no código):
+
+```bash
+cp .env.example .env
+```
+
+## Rodar local
+
+```bash
+npx expo start
+# ou web:
+npm run web
+```
+
+Abra http://localhost:8081
+
+## Deploy (Vercel)
+
+| Campo | Valor |
+|--------|--------|
+| Install | `npm install` |
+| Build | `npx expo export -p web` |
+| Output | `dist` |
+
+Env no Vercel (também definidas em `vercel.json`):
 
 ```
 API_URL=https://rocketmail-django.onrender.com
 EXPO_PUBLIC_API_URL=https://rocketmail-django.onrender.com
 ```
 
-O app **ignora** `rocketmail-api.onrender.com` mesmo se ainda estiver na env do deploy.
+Após alterar a API, faça **push + redeploy** (o bundle antigo ainda aponta para a URL errada).
 
+## Testes
 
-## 👨‍💻 Author
+```bash
+npm run test:unit
+npm run test:integration
+```
+
+A integração bate em `https://rocketmail-django.onrender.com`.
+
+## Autor
 
 Raul Lopes Tomaz
 
-LinkedIn:
-https://www.linkedin.com/in/raul-lopes-tomaz-aa56a5267/
+LinkedIn: https://www.linkedin.com/in/raul-lopes-tomaz-aa56a5267/

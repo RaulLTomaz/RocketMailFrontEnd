@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npx expo export -p web",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "env": {
+    "API_URL": "https://rocketmail-django.onrender.com",
+    "EXPO_PUBLIC_API_URL": "https://rocketmail-django.onrender.com"
+  },
+  "build": {
+    "env": {
+      "API_URL": "https://rocketmail-django.onrender.com",
+      "EXPO_PUBLIC_API_URL": "https://rocketmail-django.onrender.com"
+    }
+  }
+}
