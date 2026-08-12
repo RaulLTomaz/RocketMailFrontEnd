@@ -3,6 +3,7 @@ export type RootStackParamList = {
     Signup: undefined;
     MainTabs: undefined;
     Profile: { userId: number };
+    Connections: { tab?: "seguidores" | "seguindo" };
 };
 
 export type MainTabParamList = {

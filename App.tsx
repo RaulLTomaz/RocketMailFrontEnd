@@ -12,6 +12,7 @@ import HomeScreen from "./src/screens/HomeScreen";
 import ExploreScreen from "./src/screens/ExploreScreen";
 import MyProfileScreen from "./src/screens/MyProfileScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import ConnectionsScreen from "./src/screens/ConnectionsScreen";
 import { api } from "./src/api/client";
 import type { MainTabParamList, RootStackParamList } from "./src/types/navigation";
 
@@ -137,6 +138,11 @@ function RootNavigator() {
                         name="Profile"
                         component={ProfileScreen}
                         options={{ headerTitle: "Perfil" }}
+                    />
+                    <Stack.Screen
+                        name="Connections"
+                        component={ConnectionsScreen}
+                        options={{ headerTitle: "Conexões" }}
                     />
                 </Stack.Navigator>
             </>

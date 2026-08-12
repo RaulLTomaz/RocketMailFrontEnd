@@ -14,6 +14,7 @@ import { deletePost } from "../api/posts";
 import { apiErrorMessage } from "../utils/apiError";
 import { useTheme } from "../theme/ThemeContext";
 import Avatar from "./Avatar";
+import CommentsSheet from "./CommentsSheet";
 
 type Props = {
     item: PostWithLikes;
@@ -33,6 +34,8 @@ export default function PostCard({
     const { colors } = useTheme();
     const [liking, setLiking] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [commentsOpen, setCommentsOpen] = useState(false);
+    const [commentCount, setCommentCount] = useState<number | null>(null);
 
     const isMine = currentUserId != null && item.usuario?.id === currentUserId;
 
@@ -158,6 +161,22 @@ export default function PostCard({
                     )}
                 </Pressable>
 
+                <Pressable
+                    onPress={() => setCommentsOpen(true)}
+                    style={styles.actionBtn}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                        commentCount != null
+                            ? `Comentários. ${commentCount}`
+                            : "Abrir comentários"
+                    }
+                >
+                    <Text style={[styles.actionLabel, { color: colors.textMuted }]}>
+                        💬{commentCount != null ? ` ${commentCount}` : ""}
+                    </Text>
+                </Pressable>
+
                 {isMine ? (
                     <Pressable
                         onPress={confirmDelete}
@@ -177,6 +196,18 @@ export default function PostCard({
                     </Pressable>
                 ) : null}
             </View>
+
+            <CommentsSheet
+                visible={commentsOpen}
+                postId={item.id}
+                currentUserId={currentUserId}
+                onClose={() => setCommentsOpen(false)}
+                onCountChange={setCommentCount}
+                onPressAuthor={(userId) => {
+                    setCommentsOpen(false);
+                    onPressAuthor?.(userId);
+                }}
+            />
         </View>
     );
 }

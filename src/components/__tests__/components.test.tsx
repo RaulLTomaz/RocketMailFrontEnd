@@ -12,6 +12,12 @@ jest.mock("../../api/likes", () => ({
     unlikePost: jest.fn(async () => ({ liked: false, post_id: 1 })),
 }));
 
+jest.mock("../../api/comments", () => ({
+    listComments: jest.fn(async () => []),
+    createComment: jest.fn(),
+    deleteComment: jest.fn(),
+}));
+
 jest.mock("../../api/posts", () => ({
     deletePost: jest.fn(async () => ({ deleted: true, id: 1 })),
 }));
@@ -68,6 +74,7 @@ describe("UI components", () => {
         expect(screen.getByText("Bob")).toBeTruthy();
         expect(screen.getByText("Olá mundo")).toBeTruthy();
         expect(screen.getByText(/♡ 3/)).toBeTruthy();
+        expect(screen.getByLabelText("Abrir comentários")).toBeTruthy();
     });
 
     it("PostCard mostra Excluir quando o post é do usuário atual", () => {

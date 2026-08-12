@@ -439,6 +439,16 @@ export default function ProfileScreen({ route }: ProfileScreenProps) {
                     onSignOut={() => {
                         void handleSignOut();
                     }}
+                    onPressSeguidores={
+                        isMe
+                            ? () => navigation.navigate("Connections", { tab: "seguidores" })
+                            : undefined
+                    }
+                    onPressSeguindo={
+                        isMe
+                            ? () => navigation.navigate("Connections", { tab: "seguindo" })
+                            : undefined
+                    }
                 />
 
                 {listError ? (

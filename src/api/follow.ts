@@ -26,3 +26,8 @@ export async function listSeguidos(): Promise<UsuarioOut[]> {
     const res = await api.get<UsuarioOut[]>("/seguir/seguidos");
     return res.data;
 }
+
+export async function listSeguidores(): Promise<UsuarioOut[]> {
+    const res = await api.get<UsuarioOut[]>("/seguir/seguidores");
+    return res.data;
+}

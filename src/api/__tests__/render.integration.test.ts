@@ -38,7 +38,8 @@ import {
     searchUsers,
 } from "../users";
 import { getLikesBatch, likePost, unlikePost } from "../likes";
-import { followUser, unfollowUser, listSeguidos } from "../follow";
+import { followUser, unfollowUser, listSeguidos, listSeguidores } from "../follow";
+import { listComments, createComment, deleteComment } from "../comments";
 import { attachLikes } from "../attachLikes";
 
 const API_URL = "https://rocketmail-django.onrender.com";
@@ -210,11 +211,28 @@ describe("Render API integration (envio + recebimento)", () => {
                 post_id: created.id,
             });
 
+            const comentario = await createComment(created.id, {
+                comentario: `comentário it ${Date.now()}`,
+            });
+            expect(comentario.post_id).toBe(created.id);
+            expect(comentario.usuario.id).toBe(userA.id);
+            expect(comentario.usuario.nome).toBeTruthy();
+            const comentarios = await listComments(created.id);
+            expect(comentarios.some((c) => c.id === comentario.id)).toBe(true);
+            expect(await deleteComment(comentario.id)).toMatchObject({
+                deleted: true,
+                id: comentario.id,
+            });
+            expect(
+                (await listComments(created.id)).some((c) => c.id === comentario.id)
+            ).toBe(false);
+
             expect(await followUser(userB.id)).toMatchObject({
                 seguidor_id: userA.id,
                 seguido_id: userB.id,
             });
             expect((await listSeguidos()).some((u) => u.id === userB.id)).toBe(true);
+            expect(Array.isArray(await listSeguidores())).toBe(true);
             await unfollowUser(userB.id);
             expect((await listSeguidos()).some((u) => u.id === userB.id)).toBe(false);
 

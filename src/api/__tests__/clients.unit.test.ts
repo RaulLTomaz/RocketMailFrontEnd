@@ -17,7 +17,8 @@ import {
     uploadFoto,
 } from "../users";
 import { likePost, unlikePost, getLikesBatch } from "../likes";
-import { followUser, unfollowUser, listSeguidos } from "../follow";
+import { followUser, unfollowUser, listSeguidos, listSeguidores } from "../follow";
+import { listComments, createComment, deleteComment } from "../comments";
 
 jest.mock("../client", () => ({
     api: {
@@ -305,7 +306,7 @@ describe("API clients (unit / mocked)", () => {
     });
 
     describe("follow", () => {
-        it("follow/unfollow via query seguido_id e lista seguidos", async () => {
+        it("follow/unfollow via query seguido_id e lista seguidos/seguidores", async () => {
             mockedApi.post.mockResolvedValue({
                 data: { seguidor_id: 1, seguido_id: 2 },
             });
@@ -319,6 +320,7 @@ describe("API clients (unit / mocked)", () => {
             await followUser(2);
             await unfollowUser(2);
             await listSeguidos();
+            await listSeguidores();
 
             expect(mockedApi.post).toHaveBeenCalledWith(
                 "/seguir/",
@@ -330,6 +332,50 @@ describe("API clients (unit / mocked)", () => {
                 expect.objectContaining({ params: { seguido_id: 2 } })
             );
             expect(mockedApi.get).toHaveBeenCalledWith("/seguir/seguidos");
+            expect(mockedApi.get).toHaveBeenCalledWith("/seguir/seguidores");
+        });
+    });
+
+    describe("comments", () => {
+        it("lista, cria e exclui comentário", async () => {
+            mockedApi.get.mockResolvedValue({
+                data: [
+                    {
+                        id: 1,
+                        comentario: "oi",
+                        data_criacao: "2026-01-01T00:00:00Z",
+                        post_id: 9,
+                        usuario: { id: 1, nome: "Ana", foto_url: null },
+                    },
+                ],
+            });
+            mockedApi.post.mockResolvedValue({
+                data: {
+                    id: 2,
+                    comentario: "novo",
+                    data_criacao: "2026-01-01T00:00:00Z",
+                    post_id: 9,
+                    usuario: { id: 1, nome: "Ana", foto_url: null },
+                },
+            });
+            mockedApi.delete.mockResolvedValue({
+                data: { deleted: true, id: 2 },
+            });
+
+            await listComments(9);
+            await createComment(9, { comentario: "novo" });
+            await deleteComment(2);
+
+            expect(mockedApi.get).toHaveBeenCalledWith(
+                "/comentario/post/9",
+                expect.objectContaining({
+                    params: { limit: 50, offset: 0 },
+                })
+            );
+            expect(mockedApi.post).toHaveBeenCalledWith("/comentario/post/9", {
+                comentario: "novo",
+            });
+            expect(mockedApi.delete).toHaveBeenCalledWith("/comentario/2");
         });
     });
 });

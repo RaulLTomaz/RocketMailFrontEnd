@@ -31,6 +31,8 @@ type Props = {
     onOpenEdit: () => void;
     onDeleteAccount: () => void;
     onSignOut: () => void;
+    onPressSeguidores?: () => void;
+    onPressSeguindo?: () => void;
 };
 
 export default function ProfileHeader({
@@ -46,6 +48,8 @@ export default function ProfileHeader({
     onOpenEdit,
     onDeleteAccount,
     onSignOut,
+    onPressSeguidores,
+    onPressSeguindo,
 }: Props) {
     const { colors } = useTheme();
 
@@ -105,14 +109,28 @@ export default function ProfileHeader({
                         <Text style={{ fontWeight: "700" }}>{stats.posts}</Text> posts
                     </Text>
                     <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
-                    <Text style={[styles.counter, { color: colors.text }]}>
-                        <Text style={{ fontWeight: "700" }}>{stats.seguidores}</Text>{" "}
-                        seguidores
-                    </Text>
+                    <Pressable
+                        onPress={onPressSeguidores}
+                        disabled={!onPressSeguidores}
+                        accessibilityRole={onPressSeguidores ? "button" : undefined}
+                        accessibilityLabel={`${stats.seguidores} seguidores`}
+                    >
+                        <Text style={[styles.counter, { color: colors.text }]}>
+                            <Text style={{ fontWeight: "700" }}>{stats.seguidores}</Text>{" "}
+                            seguidores
+                        </Text>
+                    </Pressable>
                     <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
-                    <Text style={[styles.counter, { color: colors.text }]}>
-                        <Text style={{ fontWeight: "700" }}>{stats.seguindo}</Text> seguindo
-                    </Text>
+                    <Pressable
+                        onPress={onPressSeguindo}
+                        disabled={!onPressSeguindo}
+                        accessibilityRole={onPressSeguindo ? "button" : undefined}
+                        accessibilityLabel={`${stats.seguindo} seguindo`}
+                    >
+                        <Text style={[styles.counter, { color: colors.text }]}>
+                            <Text style={{ fontWeight: "700" }}>{stats.seguindo}</Text> seguindo
+                        </Text>
+                    </Pressable>
                 </View>
             ) : null}
 
