@@ -31,6 +31,13 @@ jest.mock("../../images/FAVICON.png", () => 1);
 
 jest.mock("@react-navigation/native", () => ({
     useNavigation: () => ({ navigate: jest.fn(), push: jest.fn() }),
+    useFocusEffect: (cb: () => void | (() => void)) => {
+        const React = require("react");
+        React.useEffect(() => {
+            const cleanup = cb();
+            return typeof cleanup === "function" ? cleanup : undefined;
+        }, [cb]);
+    },
 }));
 
 jest.mock("../../context/AuthContext", () => ({

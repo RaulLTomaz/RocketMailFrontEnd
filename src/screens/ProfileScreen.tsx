@@ -9,7 +9,7 @@ import {
     Alert,
     Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../context/AuthContext";
@@ -50,7 +50,8 @@ function isCanceled(e: unknown): boolean {
 
 export default function ProfileScreen({ route }: ProfileScreenProps) {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { user: me, signOut, setUser, isFollowing, follow, unfollow } = useAuth();
+    const { user: me, signOut, setUser, isFollowing, follow, unfollow, followingIds } =
+        useAuth();
     const { colors } = useTheme();
 
     const viewingUserId = useMemo<number | null>(() => {
@@ -97,6 +98,14 @@ export default function ProfileScreen({ route }: ProfileScreenProps) {
     const isMe = !!(me && viewingUserId === me.id);
     const following = viewingUserId != null ? isFollowing(viewingUserId) : false;
     const hasPhoto = !!user?.foto_url;
+
+    // No próprio perfil, "seguindo" acompanha followingIds (atualizado no follow/unfollow).
+    // Evita contagem stale quando a aba MyProfile permanece montada ao voltar de Conexões.
+    const displayStats = useMemo(() => {
+        if (!stats) return null;
+        if (isMe) return { ...stats, seguindo: followingIds.size };
+        return stats;
+    }, [stats, isMe, followingIds]);
 
     const applyUserUpdate = useCallback(
         (updated: UsuarioOut) => {
@@ -146,6 +155,13 @@ export default function ProfileScreen({ route }: ProfileScreenProps) {
         initialLoad();
     }, [initialLoad]);
 
+    // Recarrega stats do backend ao focar a tela (ex.: voltar de Conexões / outro perfil).
+    useFocusEffect(
+        useCallback(() => {
+            if (!viewingUserId) return;
+            void loadHeader(viewingUserId).catch(() => {});
+        }, [viewingUserId, loadHeader])
+    );
     const onRefresh = useCallback(async () => {
         if (!viewingUserId) return;
         try {
@@ -424,7 +440,7 @@ export default function ProfileScreen({ route }: ProfileScreenProps) {
             <ContentColumn style={styles.flex}>
                 <ProfileHeader
                     user={user}
-                    stats={stats}
+                    stats={displayStats}
                     isMe={isMe}
                     following={following}
                     followBusy={followBusy}
