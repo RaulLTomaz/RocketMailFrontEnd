@@ -36,6 +36,11 @@ type SearchHitWithLikes = {
     posts: PostWithLikes[];
 };
 
+function isCanceled(e: unknown): boolean {
+    const err = e as { name?: string; message?: string };
+    return err?.name === "CanceledError" || err?.message === "canceled";
+}
+
 export default function ExploreScreen() {
     const { user, signOut } = useAuth();
     const { colors } = useTheme();
@@ -46,6 +51,7 @@ export default function ExploreScreen() {
 
     const [posts, setPosts] = useState<PostWithLikes[]>([]);
     const [loading, setLoading] = useState(true);
+    const [listError, setListError] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -54,8 +60,23 @@ export default function ExploreScreen() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchError, setSearchError] = useState<string | null>(null);
 
+    const feedAbortRef = useRef<AbortController | null>(null);
     const searchAbortRef = useRef<AbortController | null>(null);
     const isSearching = debouncedQuery.trim().length > 0;
+
+    const nextFeedSignal = () => {
+        feedAbortRef.current?.abort();
+        const c = new AbortController();
+        feedAbortRef.current = c;
+        return c.signal;
+    };
+
+    useEffect(() => {
+        return () => {
+            feedAbortRef.current?.abort();
+            searchAbortRef.current?.abort();
+        };
+    }, []);
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
@@ -67,6 +88,7 @@ export default function ExploreScreen() {
             limit: PAGE_SIZE,
             offset,
             sort: "-data",
+            signal: nextFeedSignal(),
         });
         const withLikes = await attachLikes(data);
         setHasMore(data.length >= PAGE_SIZE);
@@ -76,11 +98,13 @@ export default function ExploreScreen() {
     const initialLoad = useCallback(async () => {
         try {
             setLoading(true);
+            setListError(null);
             setHasMore(true);
             await fetchPage(0, false);
         } catch (e: unknown) {
+            if (isCanceled(e)) return;
             setHasMore(false);
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar posts"));
+            setListError(apiErrorMessage(e, "Falha ao carregar posts"));
         } finally {
             setLoading(false);
         }
@@ -104,26 +128,27 @@ export default function ExploreScreen() {
                 postsPerUser: 5,
                 signal: controller.signal,
             });
-            const enriched: SearchHitWithLikes[] = [];
-            for (const hit of hits) {
-                const withLikes = await attachLikes(hit.posts ?? []);
-                enriched.push({ usuario: hit.usuario, posts: withLikes });
-            }
+            const allPosts = hits.flatMap((h) => h.posts ?? []);
+            const withLikes = await attachLikes(allPosts);
+            const byId = new Map(withLikes.map((p) => [p.id, p]));
+            const enriched: SearchHitWithLikes[] = hits.map((hit) => ({
+                usuario: hit.usuario,
+                posts: (hit.posts ?? []).map(
+                    (p) =>
+                        byId.get(p.id) ?? {
+                            ...p,
+                            likeCount: 0,
+                            likedByMe: false,
+                        }
+                ),
+            }));
             if (!controller.signal.aborted) {
                 setSearchHits(enriched);
             }
-        } catch (e: any) {
-            if (e?.name === "CanceledError" || e?.message === "canceled") return;
-            const status = e?.response?.status;
-            if (status === 404) {
-                setSearchHits([]);
-                setSearchError(
-                    "Busca de usuários ainda não está disponível no servidor. Peça o deploy do endpoint GET /usuario/search."
-                );
-            } else {
-                setSearchHits([]);
-                setSearchError(apiErrorMessage(e, "Falha ao buscar usuários"));
-            }
+        } catch (e: unknown) {
+            if (isCanceled(e)) return;
+            setSearchHits([]);
+            setSearchError(apiErrorMessage(e, "Falha ao buscar usuários"));
         } finally {
             if (!controller.signal.aborted) setSearchLoading(false);
         }
@@ -146,13 +171,14 @@ export default function ExploreScreen() {
             if (isSearching) {
                 await runSearch(debouncedQuery);
             } else {
+                setListError(null);
                 setHasMore(true);
                 await fetchPage(0, false);
             }
         } catch (e: unknown) {
-            if (!isSearching) {
+            if (!isSearching && !isCanceled(e)) {
                 setHasMore(false);
-                Alert.alert("Erro", apiErrorMessage(e, "Falha ao atualizar"));
+                setListError(apiErrorMessage(e, "Falha ao atualizar"));
             }
         } finally {
             setRefreshing(false);
@@ -166,8 +192,9 @@ export default function ExploreScreen() {
             setLoadingMore(true);
             await fetchPage(posts.length, true);
         } catch (e: unknown) {
+            if (isCanceled(e)) return;
             setHasMore(false);
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar mais"));
+            setListError(apiErrorMessage(e, "Falha ao carregar mais"));
         } finally {
             setLoadingMore(false);
         }
@@ -212,7 +239,7 @@ export default function ExploreScreen() {
         ]);
     }, [signOut]);
 
-    if (loading && !isSearching) {
+    if (!user || (loading && !isSearching)) {
         return (
             <Screen style={styles.loading}>
                 <ActivityIndicator color={colors.accent} />
@@ -224,54 +251,40 @@ export default function ExploreScreen() {
         <Screen>
             <ContentColumn style={styles.flex}>
                 <View style={styles.header}>
-                    <View style={styles.headerText}>
-                        <Text style={[styles.title, { color: colors.text }]}>Procurar</Text>
-                    </View>
+                    <Text style={[styles.title, { color: colors.text }]}>Procurar</Text>
                     <View style={styles.headerActions}>
                         <ThemeToggle size="sm" />
                         <Button title="Sair" variant="ghost" onPress={handleSignOut} />
                     </View>
                 </View>
 
-                <View style={styles.searchWrap}>
+                <View style={styles.searchRow}>
                     <TextField
+                        style={styles.searchInput}
                         placeholder="Buscar usuários por nome…"
+                        accessibilityLabel="Buscar usuários por nome"
                         value={query}
                         onChangeText={setQuery}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        clearButtonMode="while-editing"
-                        style={[
-                            styles.searchInput,
-                            {
-                                borderColor: colors.border,
-                                backgroundColor: colors.surface,
-                            },
-                        ]}
                     />
-                    {query.length > 0 ? (
-                        <Pressable
-                            onPress={() => setQuery("")}
-                            style={styles.clearBtn}
-                            hitSlop={8}
-                        >
-                            <Text style={{ color: colors.accent, fontWeight: "600" }}>
-                                Limpar
-                            </Text>
-                        </Pressable>
+                    {searchLoading ? (
+                        <ActivityIndicator color={colors.accent} style={{ marginLeft: 8 }} />
                     ) : null}
                 </View>
 
                 {isSearching ? (
-                    searchLoading ? (
-                        <View style={styles.loadingInline}>
-                            <ActivityIndicator color={colors.accent} />
-                        </View>
-                    ) : (
+                    <>
+                        {searchError ? (
+                            <Text style={[styles.inlineError, { color: colors.danger }]}>
+                                {searchError}
+                            </Text>
+                        ) : null}
                         <FlatList
                             style={styles.flex}
                             data={searchHits}
                             keyExtractor={(item) => String(item.usuario.id)}
+                            contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 16 }}
                             refreshControl={
                                 <RefreshControl
                                     refreshing={refreshing}
@@ -280,43 +293,36 @@ export default function ExploreScreen() {
                                     colors={[colors.accent]}
                                 />
                             }
-                            contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 20 }}
-                            ListHeaderComponent={
-                                searchError ? (
-                                    <Text
-                                        style={[
-                                            styles.searchMsg,
-                                            { color: colors.danger },
-                                        ]}
-                                    >
-                                        {searchError}
-                                    </Text>
-                                ) : null
-                            }
                             ListEmptyComponent={
-                                !searchError ? (
+                                !searchLoading ? (
                                     <View style={{ padding: 24, alignItems: "center" }}>
                                         <Text style={{ color: colors.textMuted }}>
-                                            Nenhum usuário encontrado para “{debouncedQuery}”.
+                                            {searchError
+                                                ? "Não foi possível buscar agora."
+                                                : "Nenhum usuário encontrado."}
                                         </Text>
                                     </View>
                                 ) : null
                             }
                             renderItem={({ item }) => (
-                                <View style={styles.hitBlock}>
+                                <View
+                                    style={[
+                                        styles.hitCard,
+                                        {
+                                            borderColor: colors.border,
+                                            backgroundColor: colors.surface,
+                                        },
+                                    ]}
+                                >
                                     <Pressable
-                                        style={[
-                                            styles.userRow,
-                                            {
-                                                backgroundColor: colors.surface,
-                                                borderColor: colors.border,
-                                            },
-                                        ]}
+                                        style={styles.hitHeader}
                                         onPress={() =>
                                             navigation.navigate("Profile", {
                                                 userId: item.usuario.id,
                                             })
                                         }
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Abrir perfil de ${item.usuario.nome}`}
                                     >
                                         <Avatar
                                             nome={item.usuario.nome}
@@ -325,125 +331,94 @@ export default function ExploreScreen() {
                                         />
                                         <View style={{ flex: 1, minWidth: 0 }}>
                                             <Text
-                                                style={[
-                                                    styles.userName,
-                                                    { color: colors.text },
-                                                ]}
+                                                style={[styles.hitName, { color: colors.text }]}
                                             >
                                                 {item.usuario.nome}
                                             </Text>
                                             <Text
-                                                style={{
-                                                    color: colors.textMuted,
-                                                    fontSize: 13,
-                                                }}
-                                                numberOfLines={1}
+                                                style={[
+                                                    styles.hitEmail,
+                                                    { color: colors.textMuted },
+                                                ]}
                                             >
                                                 {item.usuario.email}
                                             </Text>
                                         </View>
-                                        <Text
-                                            style={{
-                                                color: colors.accent,
-                                                fontWeight: "600",
-                                                fontSize: 13,
-                                            }}
-                                        >
-                                            Ver perfil
-                                        </Text>
                                     </Pressable>
-
-                                    {item.posts.length === 0 ? (
-                                        <Text
-                                            style={[
-                                                styles.noPosts,
-                                                { color: colors.textMuted },
-                                            ]}
-                                        >
-                                            Sem posts ainda.
-                                        </Text>
-                                    ) : (
-                                        <View style={styles.postsCol}>
-                                            {item.posts.map((p) => (
-                                                <PostCard
-                                                    key={p.id}
-                                                    item={p}
-                                                    currentUserId={user?.id}
-                                                    onPressAuthor={(userId) =>
-                                                        navigation.navigate("Profile", {
-                                                            userId,
-                                                        })
-                                                    }
-                                                    onDeleted={(id) => {
-                                                        setSearchHits((prev) =>
-                                                            prev.map((h) =>
-                                                                h.usuario.id ===
-                                                                item.usuario.id
-                                                                    ? {
-                                                                          ...h,
-                                                                          posts: h.posts.filter(
-                                                                              (x) =>
-                                                                                  x.id !== id
-                                                                          ),
-                                                                      }
-                                                                    : h
-                                                            )
-                                                        );
-                                                    }}
-                                                    onLikeChange={onLikeChange}
-                                                />
-                                            ))}
+                                    {item.posts.map((p) => (
+                                        <View key={p.id} style={{ marginTop: 10 }}>
+                                            <PostCard
+                                                item={p}
+                                                currentUserId={user.id}
+                                                onPressAuthor={(userId) =>
+                                                    navigation.navigate("Profile", { userId })
+                                                }
+                                                onLikeChange={onLikeChange}
+                                            />
                                         </View>
-                                    )}
+                                    ))}
                                 </View>
                             )}
                         />
-                    )
+                    </>
                 ) : (
-                    <FlatList
-                        style={styles.flex}
-                        data={posts}
-                        keyExtractor={(item) => String(item.id)}
-                        renderItem={({ item }) => (
-                            <PostCard
-                                item={item}
-                                currentUserId={user?.id}
-                                onPressAuthor={(userId) =>
-                                    navigation.navigate("Profile", { userId })
-                                }
-                                onDeleted={(id) =>
-                                    setPosts((prev) => prev.filter((p) => p.id !== id))
-                                }
-                                onLikeChange={onLikeChange}
-                            />
-                        )}
-                        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={onRefresh}
-                                tintColor={colors.accent}
-                                colors={[colors.accent]}
-                            />
-                        }
-                        onEndReachedThreshold={0.5}
-                        onEndReached={onEndReached}
-                        ListFooterComponent={
-                            loadingMore ? (
-                                <View style={{ paddingVertical: 16 }}>
-                                    <ActivityIndicator color={colors.accent} />
-                                </View>
-                            ) : null
-                        }
-                        ListEmptyComponent={
-                            <View style={{ padding: 24, alignItems: "center" }}>
-                                <Text style={{ color: colors.textMuted }}>
-                                    Nenhum post por aqui.
+                    <>
+                        {listError ? (
+                            <View style={styles.errorBanner}>
+                                <Text style={[styles.inlineError, { color: colors.danger }]}>
+                                    {listError}
                                 </Text>
+                                <Button
+                                    title="Tentar novamente"
+                                    variant="ghost"
+                                    onPress={() => void initialLoad()}
+                                />
                             </View>
-                        }
-                    />
+                        ) : null}
+                        <FlatList
+                            style={styles.flex}
+                            data={posts}
+                            keyExtractor={(item) => String(item.id)}
+                            renderItem={({ item }) => (
+                                <PostCard
+                                    item={item}
+                                    currentUserId={user.id}
+                                    onPressAuthor={(userId) =>
+                                        navigation.navigate("Profile", { userId })
+                                    }
+                                    onLikeChange={onLikeChange}
+                                />
+                            )}
+                            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                            contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={refreshing}
+                                    onRefresh={onRefresh}
+                                    tintColor={colors.accent}
+                                    colors={[colors.accent]}
+                                />
+                            }
+                            onEndReachedThreshold={0.5}
+                            onEndReached={onEndReached}
+                            ListFooterComponent={
+                                loadingMore ? (
+                                    <View style={{ paddingVertical: 16 }}>
+                                        <ActivityIndicator color={colors.accent} />
+                                    </View>
+                                ) : null
+                            }
+                            ListEmptyComponent={
+                                <View style={{ padding: 24, alignItems: "center" }}>
+                                    <Text style={{ color: colors.textMuted }}>
+                                        {listError
+                                            ? "Não foi possível carregar os posts."
+                                            : "Nenhum post para explorar."}
+                                    </Text>
+                                </View>
+                            }
+                        />
+                    </>
                 )}
             </ContentColumn>
         </Screen>
@@ -453,60 +428,49 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
     flex: { flex: 1 },
     loading: { justifyContent: "center", alignItems: "center" },
-    loadingInline: { flex: 1, justifyContent: "center", alignItems: "center" },
     header: {
-        paddingHorizontal: 16,
         paddingTop: 8,
+        paddingHorizontal: 16,
         paddingBottom: 8,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         gap: 8,
     },
-    headerText: { flex: 1, minWidth: 0 },
+    title: { fontSize: 22, fontWeight: "800" },
     headerActions: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
     },
-    title: { fontSize: 24, fontWeight: "800" },
-    searchWrap: {
+    searchRow: {
+        flexDirection: "row",
+        alignItems: "center",
         paddingHorizontal: 16,
-        paddingBottom: 8,
-        gap: 8,
+        marginBottom: 4,
     },
-    searchInput: {
-        borderRadius: 14,
-    },
-    clearBtn: {
-        alignSelf: "flex-end",
-        paddingVertical: 4,
-    },
-    searchMsg: {
+    searchInput: { flex: 1 },
+    inlineError: {
         fontSize: 14,
-        marginBottom: 12,
-        lineHeight: 20,
+        paddingHorizontal: 16,
+        marginBottom: 4,
     },
-    hitBlock: {
-        gap: 10,
+    errorBanner: {
+        paddingHorizontal: 16,
+        paddingBottom: 4,
+        gap: 4,
+        alignItems: "flex-start",
     },
-    userRow: {
+    hitCard: {
+        borderWidth: 1,
+        borderRadius: 14,
+        padding: 14,
+    },
+    hitHeader: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        padding: 12,
-        borderRadius: 14,
-        borderWidth: 1,
     },
-    userName: {
-        fontSize: 16,
-        fontWeight: "700",
-    },
-    noPosts: {
-        fontSize: 13,
-        paddingHorizontal: 4,
-    },
-    postsCol: {
-        gap: 10,
-    },
+    hitName: { fontSize: 16, fontWeight: "700" },
+    hitEmail: { fontSize: 13, marginTop: 2 },
 });

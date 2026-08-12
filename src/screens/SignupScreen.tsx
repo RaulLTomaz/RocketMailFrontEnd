@@ -9,17 +9,23 @@ import {
     Platform,
     ScrollView,
 } from "react-native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 import { apiErrorMessage } from "../utils/apiError";
 import { checkPassword } from "../utils/password";
+import type { RootStackParamList } from "../types/navigation";
 import Screen from "../components/ui/Screen";
 import TextField from "../components/ui/TextField";
 import Button from "../components/ui/Button";
 import ThemeToggle from "../components/ThemeToggle";
 import ContentColumn, { AUTH_MAX_WIDTH } from "../components/ui/ContentColumn";
 
-export default function SignupScreen({ navigation }: any) {
+type Props = {
+    navigation: NativeStackNavigationProp<RootStackParamList, "Signup">;
+};
+
+export default function SignupScreen({ navigation }: Props) {
     const { signUp } = useAuth();
     const { colors } = useTheme();
     const [nome, setNome] = useState("");

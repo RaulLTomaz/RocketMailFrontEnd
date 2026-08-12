@@ -10,7 +10,23 @@ export function setUnauthorizedHandler(fn: () => void) {
 
 const API_URL = API_BASE_URL;
 
-console.log("[API] baseURL =", API_URL);
+function devLog(...args: unknown[]) {
+    if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(...args);
+    }
+}
+
+function devError(...args: unknown[]) {
+    if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.error(...args);
+    }
+}
+
+if (__DEV__) {
+    devLog("[API] baseURL =", API_URL);
+}
 
 export const api = axios.create({
     baseURL: API_URL,
@@ -31,28 +47,30 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     const token = await getToken();
     if (token) {
         config.headers = config.headers ?? {};
-        (config.headers as any).Authorization = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer ${token}`;
     }
 
-    const method = (config.method ?? "get").toUpperCase();
-    const fullUrl = buildFullUrl(config);
-    console.log("[API] →", method, fullUrl);
+    if (__DEV__) {
+        const method = (config.method ?? "get").toUpperCase();
+        devLog("[API] →", method, buildFullUrl(config));
+    }
 
     return config;
 });
 
 api.interceptors.response.use(
     (res) => {
-        const method = (res.config.method ?? "get").toUpperCase();
-        const fullUrl = buildFullUrl(res.config as InternalAxiosRequestConfig);
-        console.log("[API] ←", res.status, method, fullUrl);
+        if (__DEV__) {
+            const method = (res.config.method ?? "get").toUpperCase();
+            const fullUrl = buildFullUrl(res.config as InternalAxiosRequestConfig);
+            devLog("[API] ←", res.status, method, fullUrl);
+        }
         return res;
     },
     async (error: AxiosError) => {
         const cfg = (error.config ?? {}) as InternalAxiosRequestConfig;
         const method = (cfg.method ?? "get").toUpperCase();
         const fullUrl = buildFullUrl(cfg);
-
         const status = error?.response?.status;
 
         if (status === 401) {
@@ -66,12 +84,14 @@ api.interceptors.response.use(
             }
         }
 
-        if (error.response) {
-            console.error("[API] ×", error.response.status, method, fullUrl, error.response.data);
-        } else if (error.request) {
-            console.error("[API] × Network/Request error em", method, fullUrl, error.message);
-        } else {
-            console.error("[API] × Erro ao configurar request:", error.message);
+        if (__DEV__) {
+            if (error.response) {
+                devError("[API] ×", error.response.status, method, fullUrl);
+            } else if (error.request) {
+                devError("[API] × Network/Request error em", method, fullUrl, error.message);
+            } else {
+                devError("[API] × Erro ao configurar request:", error.message);
+            }
         }
 
         return Promise.reject(error);

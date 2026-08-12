@@ -185,9 +185,9 @@ describe("Render API integration (envio + recebimento)", () => {
                 expect(meHit?.posts.some((p) => p.id === created.id)).toBe(true);
             } catch (e: any) {
                 if (e?.response?.status === 404) {
-                    // Limitação: endpoint pode ainda não estar no deploy.
+                    // Skip defensivo se o ambiente remoto não expuser a rota.
                     console.warn(
-                        "[integration] GET /usuario/search ainda não disponível (404). Pule até o backend publicar."
+                        "[integration] GET /usuario/search retornou 404 neste ambiente; pulando asserção de busca."
                     );
                 } else {
                     throw e;

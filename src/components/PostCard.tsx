@@ -109,6 +109,8 @@ export default function PostCard({
                 style={styles.headerRow}
                 onPress={goAuthor}
                 disabled={!onPressAuthor || item.usuario?.id == null}
+                accessibilityRole="button"
+                accessibilityLabel={`Perfil de ${item.usuario?.nome ?? "usuário"}`}
             >
                 <Avatar
                     nome={item.usuario?.nome}
@@ -133,6 +135,12 @@ export default function PostCard({
                     disabled={liking}
                     style={styles.actionBtn}
                     hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                        item.likedByMe
+                            ? `Descurtir. ${item.likeCount} curtidas`
+                            : `Curtir. ${item.likeCount} curtidas`
+                    }
                 >
                     {liking ? (
                         <ActivityIndicator size="small" color={colors.like} />
@@ -156,6 +164,8 @@ export default function PostCard({
                         disabled={deleting}
                         style={styles.actionBtn}
                         hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Excluir post"
                     >
                         {deleting ? (
                             <ActivityIndicator size="small" color={colors.danger} />

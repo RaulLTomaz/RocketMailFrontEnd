@@ -1,6 +1,6 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
-/** API Django — hardcoded para o build (Vercel) não herdar env antiga do FastAPI. */
+/** URL da API Django — fixa no config para o build (ex.: Vercel) não herdar env desatualizada. */
 const API_BASE_URL = "https://rocketmail-django.onrender.com";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({

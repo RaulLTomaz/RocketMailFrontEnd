@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -8,10 +8,7 @@ import {
     RefreshControl,
     Alert,
     Platform,
-    Modal,
-    Pressable,
 } from "react-native";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
@@ -32,20 +29,26 @@ import { attachLikes } from "../api/attachLikes";
 import type { RootStackParamList } from "../types/navigation";
 import { apiErrorMessage } from "../utils/apiError";
 import PostCard from "../components/PostCard";
-import Avatar from "../components/Avatar";
 import PhotoViewer from "../components/PhotoViewer";
+import ProfileHeader from "../components/ProfileHeader";
+import EditProfileModal from "../components/EditProfileModal";
 import Screen from "../components/ui/Screen";
-import TextField from "../components/ui/TextField";
 import Button from "../components/ui/Button";
-import ThemeToggle from "../components/ThemeToggle";
 import ContentColumn from "../components/ui/ContentColumn";
 import { checkPassword } from "../utils/password";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
+export type ProfileScreenProps = {
+    route: { params: { userId: number } };
+};
 
 const PAGE_SIZE = 20;
 
-export default function ProfileScreen({ route }: Props) {
+function isCanceled(e: unknown): boolean {
+    const err = e as { name?: string; message?: string };
+    return err?.name === "CanceledError" || err?.message === "canceled";
+}
+
+export default function ProfileScreen({ route }: ProfileScreenProps) {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { user: me, signOut, setUser, isFollowing, follow, unfollow } = useAuth();
     const { colors } = useTheme();
@@ -63,6 +66,7 @@ export default function ProfileScreen({ route }: Props) {
     } | null>(null);
     const [posts, setPosts] = useState<PostWithLikes[]>([]);
     const [loading, setLoading] = useState(true);
+    const [listError, setListError] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -75,6 +79,20 @@ export default function ProfileScreen({ route }: Props) {
     const [editEmail, setEditEmail] = useState("");
     const [editSenha, setEditSenha] = useState("");
     const [saving, setSaving] = useState(false);
+
+    const abortRef = useRef<AbortController | null>(null);
+    const nextSignal = () => {
+        abortRef.current?.abort();
+        const c = new AbortController();
+        abortRef.current = c;
+        return c.signal;
+    };
+
+    useEffect(() => {
+        return () => {
+            abortRef.current?.abort();
+        };
+    }, []);
 
     const isMe = !!(me && viewingUserId === me.id);
     const following = viewingUserId != null ? isFollowing(viewingUserId) : false;
@@ -95,7 +113,11 @@ export default function ProfileScreen({ route }: Props) {
     }, []);
 
     const loadPage = useCallback(async (id: number, offset: number, append: boolean) => {
-        const data = await getUserPosts(id, { limit: PAGE_SIZE, offset });
+        const data = await getUserPosts(id, {
+            limit: PAGE_SIZE,
+            offset,
+            signal: nextSignal(),
+        });
         const withLikes = await attachLikes(data);
         setHasMore(data.length >= PAGE_SIZE);
         setPosts((prev) => (append ? [...prev, ...withLikes] : withLikes));
@@ -105,14 +127,16 @@ export default function ProfileScreen({ route }: Props) {
         if (!viewingUserId) return;
         try {
             setLoading(true);
+            setListError(null);
             setHasMore(true);
             await Promise.all([
                 loadHeader(viewingUserId),
                 loadPage(viewingUserId, 0, false),
             ]);
         } catch (e: unknown) {
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar perfil"));
+            if (isCanceled(e)) return;
             setHasMore(false);
+            setListError(apiErrorMessage(e, "Falha ao carregar perfil"));
         } finally {
             setLoading(false);
         }
@@ -126,14 +150,16 @@ export default function ProfileScreen({ route }: Props) {
         if (!viewingUserId) return;
         try {
             setRefreshing(true);
+            setListError(null);
             setHasMore(true);
             await Promise.all([
                 loadHeader(viewingUserId),
                 loadPage(viewingUserId, 0, false),
             ]);
         } catch (e: unknown) {
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao atualizar"));
+            if (isCanceled(e)) return;
             setHasMore(false);
+            setListError(apiErrorMessage(e, "Falha ao atualizar"));
         } finally {
             setRefreshing(false);
         }
@@ -147,8 +173,9 @@ export default function ProfileScreen({ route }: Props) {
             setLoadingMore(true);
             await loadPage(viewingUserId, posts.length, true);
         } catch (e: unknown) {
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar mais posts"));
+            if (isCanceled(e)) return;
             setHasMore(false);
+            setListError(apiErrorMessage(e, "Falha ao carregar mais posts"));
         } finally {
             setLoadingMore(false);
         }
@@ -382,7 +409,12 @@ export default function ProfileScreen({ route }: Props) {
     if (!user) {
         return (
             <Screen style={styles.loading} safe={false}>
-                <Text style={{ color: colors.textMuted }}>Usuário não encontrado.</Text>
+                <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
+                    {listError ?? "Usuário não encontrado."}
+                </Text>
+                {listError ? (
+                    <Button title="Tentar novamente" onPress={() => void initialLoad()} />
+                ) : null}
             </Screen>
         );
     }
@@ -390,116 +422,37 @@ export default function ProfileScreen({ route }: Props) {
     return (
         <Screen safe={false}>
             <ContentColumn style={styles.flex}>
-                <View style={styles.header}>
-                    <View style={styles.themeRow}>
-                        <Text style={[styles.themeLabel, { color: colors.textMuted }]}>
-                            Aparência
+                <ProfileHeader
+                    user={user}
+                    stats={stats}
+                    isMe={isMe}
+                    following={following}
+                    followBusy={followBusy}
+                    fotoBusy={fotoBusy}
+                    hasPhoto={hasPhoto}
+                    onAvatarPress={onAvatarPress}
+                    onToggleFollow={() => {
+                        void toggleFollow();
+                    }}
+                    onOpenEdit={openEdit}
+                    onDeleteAccount={confirmDeleteAccount}
+                    onSignOut={() => {
+                        void handleSignOut();
+                    }}
+                />
+
+                {listError ? (
+                    <View style={styles.errorBanner}>
+                        <Text style={[styles.errorText, { color: colors.danger }]}>
+                            {listError}
                         </Text>
-                        <View style={styles.headerActions}>
-                            <ThemeToggle size="sm" />
-                            <Button title="Sair" variant="ghost" onPress={handleSignOut} />
-                        </View>
+                        <Button
+                            title="Tentar novamente"
+                            variant="ghost"
+                            onPress={() => void onRefresh()}
+                        />
                     </View>
-
-                    <View style={styles.identityRow}>
-                        <Pressable
-                            onPress={onAvatarPress}
-                            disabled={fotoBusy || (!isMe && !hasPhoto)}
-                            accessibilityRole="button"
-                            accessibilityHint={
-                                hasPhoto || isMe
-                                    ? "Toque para ver a foto em tela cheia"
-                                    : undefined
-                            }
-                        >
-                            <View>
-                                <Avatar nome={user.nome} uri={user.foto_url} size="lg" />
-                                {fotoBusy ? (
-                                    <View style={styles.avatarBusy}>
-                                        <ActivityIndicator color="#fff" />
-                                    </View>
-                                ) : null}
-                            </View>
-                        </Pressable>
-                        <View style={styles.identityText}>
-                            <Text style={[styles.name, { color: colors.text }]}>
-                                {user.nome}
-                            </Text>
-                            <Text style={[styles.email, { color: colors.textMuted }]}>
-                                {user.email}
-                            </Text>
-                            {isMe || hasPhoto ? (
-                                <Text style={[styles.hint, { color: colors.textMuted }]}>
-                                    Toque na foto para gerenciar
-                                </Text>
-                            ) : null}
-                        </View>
-                    </View>
-
-                    {stats ? (
-                        <View style={styles.counters}>
-                            <Text style={[styles.counter, { color: colors.text }]}>
-                                <Text style={{ fontWeight: "700" }}>{stats.posts}</Text> posts
-                            </Text>
-                            <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
-                            <Text style={[styles.counter, { color: colors.text }]}>
-                                <Text style={{ fontWeight: "700" }}>{stats.seguidores}</Text>{" "}
-                                seguidores
-                            </Text>
-                            <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
-                            <Text style={[styles.counter, { color: colors.text }]}>
-                                <Text style={{ fontWeight: "700" }}>{stats.seguindo}</Text>{" "}
-                                seguindo
-                            </Text>
-                        </View>
-                    ) : null}
-
-                    {isMe ? (
-                        <Text
-                            style={[
-                                styles.badge,
-                                {
-                                    backgroundColor: colors.accentMuted,
-                                    color: colors.accent,
-                                },
-                            ]}
-                        >
-                            Seu perfil
-                        </Text>
-                    ) : null}
-
-                    <View style={styles.actionsRow}>
-                        {!isMe && viewingUserId != null ? (
-                            <Button
-                                title={
-                                    followBusy
-                                        ? "..."
-                                        : following
-                                          ? "Deixar de seguir"
-                                          : "Seguir"
-                                }
-                                onPress={toggleFollow}
-                                disabled={followBusy}
-                                loading={followBusy}
-                                variant={following ? "ghost" : "primary"}
-                            />
-                        ) : null}
-                        {isMe ? (
-                            <>
-                                <Button
-                                    title="Editar perfil"
-                                    onPress={openEdit}
-                                    variant="ghost"
-                                />
-                                <Button
-                                    title="Excluir conta"
-                                    variant="danger"
-                                    onPress={confirmDeleteAccount}
-                                />
-                            </>
-                        ) : null}
-                    </View>
-                </View>
+                ) : null}
 
                 <FlatList
                     style={styles.flex}
@@ -545,7 +498,7 @@ export default function ProfileScreen({ route }: Props) {
                     ListEmptyComponent={
                         <View style={{ padding: 24, alignItems: "center" }}>
                             <Text style={{ color: colors.textMuted }}>
-                                Sem posts por aqui.
+                                {listError ? "Não foi possível carregar os posts." : "Sem posts por aqui."}
                             </Text>
                         </View>
                     }
@@ -565,65 +518,20 @@ export default function ProfileScreen({ route }: Props) {
                 onRemovePhoto={confirmRemoveFoto}
             />
 
-            <Modal visible={editOpen} animationType="slide" transparent>
-                <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
-                    <View
-                        style={[
-                            styles.modalCard,
-                            {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                    >
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>
-                            Editar perfil
-                        </Text>
-                        <TextField
-                            placeholder="Nome"
-                            value={editNome}
-                            onChangeText={setEditNome}
-                            editable={!saving}
-                        />
-                        <TextField
-                            placeholder="E-mail"
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            value={editEmail}
-                            onChangeText={setEditEmail}
-                            editable={!saving}
-                        />
-                        <TextField
-                            placeholder="Nova senha (opcional)"
-                            secureTextEntry
-                            value={editSenha}
-                            onChangeText={setEditSenha}
-                            editable={!saving}
-                        />
-                        {editSenha.trim() ? (
-                            <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                                Senha: 8+ chars, maiúscula, número e símbolo
-                            </Text>
-                        ) : null}
-                        <View style={styles.modalActions}>
-                            <Pressable
-                                onPress={() => setEditOpen(false)}
-                                disabled={saving}
-                            >
-                                <Text style={[styles.cancel, { color: colors.textMuted }]}>
-                                    Cancelar
-                                </Text>
-                            </Pressable>
-                            <Button
-                                title={saving ? "Salvando..." : "Salvar"}
-                                onPress={saveEdit}
-                                disabled={saving}
-                                loading={saving}
-                            />
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            <EditProfileModal
+                visible={editOpen}
+                nome={editNome}
+                email={editEmail}
+                senha={editSenha}
+                saving={saving}
+                onChangeNome={setEditNome}
+                onChangeEmail={setEditEmail}
+                onChangeSenha={setEditSenha}
+                onCancel={() => setEditOpen(false)}
+                onSave={() => {
+                    void saveEdit();
+                }}
+            />
         </Screen>
     );
 }
@@ -631,71 +539,11 @@ export default function ProfileScreen({ route }: Props) {
 const styles = StyleSheet.create({
     flex: { flex: 1 },
     loading: { justifyContent: "center", alignItems: "center" },
-    header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 10 },
-    themeRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 4,
+    errorBanner: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        gap: 4,
+        alignItems: "flex-start",
     },
-    themeLabel: { fontSize: 14, fontWeight: "500" },
-    headerActions: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-    },
-    identityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-    identityText: { flex: 1, minWidth: 0, gap: 2 },
-    name: { fontSize: 22, fontWeight: "800" },
-    email: { fontSize: 14 },
-    hint: { fontSize: 12, marginTop: 4 },
-    avatarBusy: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.35)",
-        borderRadius: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    counters: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginTop: 4,
-        flexWrap: "wrap",
-    },
-    counter: { fontSize: 14 },
-    dot: {},
-    badge: {
-        marginTop: 2,
-        alignSelf: "flex-start",
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        fontSize: 12,
-        fontWeight: "600",
-        overflow: "hidden",
-    },
-    actionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
-    modalBackdrop: {
-        flex: 1,
-        justifyContent: "center",
-        padding: 24,
-        alignItems: "center",
-    },
-    modalCard: {
-        borderRadius: 14,
-        padding: 16,
-        gap: 10,
-        borderWidth: 1,
-        width: "100%",
-        maxWidth: 400,
-    },
-    modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
-    modalActions: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginTop: 8,
-    },
-    cancel: { fontSize: 16, padding: 8 },
+    errorText: { fontSize: 14 },
 });

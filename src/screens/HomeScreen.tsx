@@ -35,6 +35,7 @@ export default function HomeScreen() {
 
     const [posts, setPosts] = useState<PostWithLikes[]>([]);
     const [loading, setLoading] = useState(true);
+    const [listError, setListError] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -74,13 +75,14 @@ export default function HomeScreen() {
     const initialLoad = useCallback(async () => {
         try {
             setLoading(true);
+            setListError(null);
             setHasMore(true);
             await fetchPage(0, false);
         } catch (e: any) {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
             setHasMore(false);
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar feed"));
+            setListError(apiErrorMessage(e, "Falha ao carregar feed"));
         } finally {
             setLoading(false);
         }
@@ -94,13 +96,14 @@ export default function HomeScreen() {
         if (!user) return;
         try {
             setRefreshing(true);
+            setListError(null);
             setHasMore(true);
             await fetchPage(0, false);
         } catch (e: any) {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
             setHasMore(false);
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao atualizar feed"));
+            setListError(apiErrorMessage(e, "Falha ao atualizar feed"));
         } finally {
             setRefreshing(false);
         }
@@ -115,7 +118,7 @@ export default function HomeScreen() {
             if (e?.name === "CanceledError" || e?.message === "canceled") return;
             if (e?.response?.status === 401) return;
             setHasMore(false);
-            Alert.alert("Erro", apiErrorMessage(e, "Falha ao carregar mais posts"));
+            setListError(apiErrorMessage(e, "Falha ao carregar mais posts"));
         } finally {
             setLoadingMore(false);
         }
@@ -238,6 +241,19 @@ export default function HomeScreen() {
                     </View>
                 </View>
 
+                {listError ? (
+                    <View style={styles.errorBanner}>
+                        <Text style={[styles.errorText, { color: colors.danger }]}>
+                            {listError}
+                        </Text>
+                        <Button
+                            title="Tentar novamente"
+                            variant="ghost"
+                            onPress={() => void initialLoad()}
+                        />
+                    </View>
+                ) : null}
+
                 <FlatList
                     style={styles.flex}
                     data={posts}
@@ -277,7 +293,9 @@ export default function HomeScreen() {
                     ListEmptyComponent={
                         <View style={{ padding: 24, alignItems: "center" }}>
                             <Text style={{ color: colors.textMuted }}>
-                                Nenhum post ainda. Seja o primeiro!
+                                {listError
+                                    ? "Não foi possível carregar o feed."
+                                    : "Nenhum post ainda. Seja o primeiro!"}
                             </Text>
                         </View>
                     }
@@ -333,4 +351,11 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     counter: { fontSize: 13 },
+    errorBanner: {
+        paddingHorizontal: 16,
+        paddingBottom: 4,
+        gap: 4,
+        alignItems: "flex-start",
+    },
+    errorText: { fontSize: 14 },
 });

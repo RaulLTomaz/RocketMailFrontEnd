@@ -12,12 +12,17 @@ type Props = TextInputProps & {
     style?: StyleProp<TextStyle>;
 };
 
-export default function TextField({ style, ...rest }: Props) {
+export default function TextField({ style, accessibilityLabel, placeholder, ...rest }: Props) {
     const { colors } = useTheme();
 
     return (
         <TextInput
+            placeholder={placeholder}
             placeholderTextColor={colors.placeholder}
+            accessibilityLabel={
+                accessibilityLabel ??
+                (typeof placeholder === "string" ? placeholder : undefined)
+            }
             {...rest}
             style={[
                 styles.input,

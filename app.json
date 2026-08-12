@@ -4,11 +4,11 @@
     "slug": "RocketMailApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./src/images/logo.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./src/images/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#070B14"
     },
@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./src/images/logo.png",
         "backgroundColor": "#070B14"
       },
       "edgeToEdgeEnabled": true

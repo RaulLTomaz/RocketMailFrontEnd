@@ -5,7 +5,7 @@ export type UsuarioOut = {
     id: number;
     nome: string;
     email: string;
-    /** Opcional: backend pode ainda não expor foto de perfil. */
+    /** Presente quando o usuário tem foto de perfil. */
     foto_url?: string | null;
 };
 

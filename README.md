@@ -2,6 +2,14 @@
 
 Frontend mobile/web do RocketMail (clone de X), feito com React Native + Expo.
 
+## Features
+
+* Autenticação JWT (cadastro, login, sessão persistente)
+* Feed paginado, composição de posts e curtidas em batch
+* Busca de usuários com debounce
+* Perfil próprio e de terceiros (seguir, editar, foto, excluir conta)
+* Tema claro/escuro
+
 ## Tecnologias
 
 * React Native / Expo
@@ -19,7 +27,7 @@ https://rocketmail-django.onrender.com
 
 Health check: `GET /healthz`
 
-O app usa **somente** essa API. A API FastAPI antiga (`rocketmail-api`) foi descontinuada.
+A URL da API está **fixa no código** (`src/config/api.ts` e `app.config.ts`) para o deploy web não herdar env desatualizada. Arquivos `.env` são opcionais e só úteis para referência local — o client Axios usa a constante Django.
 
 ## Instalação
 
@@ -27,12 +35,6 @@ O app usa **somente** essa API. A API FastAPI antiga (`rocketmail-api`) foi desc
 git clone https://github.com/RaulLTomaz/RocketMailFrontEnd
 cd RocketMailFrontEnd
 npm install
-```
-
-Copie o exemplo de env (opcional — a URL Django já está no código):
-
-```bash
-cp .env.example .env
 ```
 
 ## Rodar local
@@ -53,14 +55,18 @@ Abra http://localhost:8081
 | Build | `npx expo export -p web` |
 | Output | `dist` |
 
-Env no Vercel (também definidas em `vercel.json`):
+Após alterar a API no código, faça **push + redeploy**.
 
-```
-API_URL=https://rocketmail-django.onrender.com
-EXPO_PUBLIC_API_URL=https://rocketmail-django.onrender.com
-```
+## Decisões técnicas
 
-Após alterar a API, faça **push + redeploy** (o bundle antigo ainda aponta para a URL errada).
+* Auth: form `username`/`password` no login (contrato Django) + Bearer JWT
+* Likes enriquecidos no client via `GET /like/batch` (`attachLikes`)
+* Warm-up `GET /healthz` para cold start do Render (plano free)
+
+## Limitações
+
+* Backend no Render free pode hibernar (primeira request mais lenta)
+* Token na web fica em AsyncStorage (SecureStore só no native)
 
 ## Testes
 

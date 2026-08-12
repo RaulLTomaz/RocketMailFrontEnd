@@ -46,8 +46,15 @@ function MainTabs() {
                 options={{
                     title: "Feed",
                     tabBarIcon: ({ color }) => (
-                        <Text style={{ color, fontSize: 18 }}>⌂</Text>
+                        <Text
+                            style={{ color, fontSize: 18 }}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        >
+                            ⌂
+                        </Text>
                     ),
+                    tabBarAccessibilityLabel: "Feed",
                 }}
             />
             <Tab.Screen
@@ -56,8 +63,15 @@ function MainTabs() {
                 options={{
                     title: "Procurar",
                     tabBarIcon: ({ color }) => (
-                        <Text style={{ color, fontSize: 16 }}>⌕</Text>
+                        <Text
+                            style={{ color, fontSize: 16 }}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        >
+                            ⌕
+                        </Text>
                     ),
+                    tabBarAccessibilityLabel: "Procurar",
                 }}
             />
             <Tab.Screen
@@ -66,8 +80,15 @@ function MainTabs() {
                 options={{
                     title: "Perfil",
                     tabBarIcon: ({ color }) => (
-                        <Text style={{ color, fontSize: 16 }}>☺</Text>
+                        <Text
+                            style={{ color, fontSize: 16 }}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        >
+                            ☺
+                        </Text>
                     ),
+                    tabBarAccessibilityLabel: "Perfil",
                 }}
             />
         </Tab.Navigator>

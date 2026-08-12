@@ -8,10 +8,13 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Pressable,
 } from "react-native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 import { apiErrorMessage } from "../utils/apiError";
+import type { RootStackParamList } from "../types/navigation";
 import Screen from "../components/ui/Screen";
 import TextField from "../components/ui/TextField";
 import Button from "../components/ui/Button";
@@ -19,9 +22,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import ContentColumn, { AUTH_MAX_WIDTH } from "../components/ui/ContentColumn";
 
 type Props = {
-    navigation: {
-        navigate: (route: string) => void;
-    };
+    navigation: NativeStackNavigationProp<RootStackParamList, "Login">;
 };
 
 export default function LoginScreen({ navigation }: Props) {
@@ -34,11 +35,15 @@ export default function LoginScreen({ navigation }: Props) {
 
     const onSubmit = async () => {
         if (loading) return;
+        const emailT = email.trim().toLowerCase();
+        if (!emailT || !senha) {
+            setErr("Preencha e-mail e senha.");
+            return;
+        }
         setLoading(true);
         setErr(null);
         try {
-            const payload = { email: email.trim().toLowerCase(), senha };
-            await signIn(payload);
+            await signIn({ email: emailT, senha });
         } catch (e: unknown) {
             setErr(apiErrorMessage(e, "Falha no login"));
         } finally {
@@ -115,12 +120,15 @@ export default function LoginScreen({ navigation }: Props) {
 
                         <Text style={[styles.footer, { color: colors.textMuted }]}>
                             Novo por aqui?{" "}
-                            <Text
-                                style={{ color: colors.accent, fontWeight: "600" }}
+                            <Pressable
+                                accessibilityRole="link"
+                                accessibilityLabel="Criar conta"
                                 onPress={() => navigation.navigate("Signup")}
                             >
-                                Criar conta
-                            </Text>
+                                <Text style={{ color: colors.accent, fontWeight: "600" }}>
+                                    Criar conta
+                                </Text>
+                            </Pressable>
                         </Text>
                     </ContentColumn>
                 </ScrollView>

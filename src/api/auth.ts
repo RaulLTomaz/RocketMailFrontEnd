@@ -1,4 +1,7 @@
 import { api } from "./client";
+import type { UsuarioOut } from "./users";
+
+export type { UsuarioOut } from "./users";
 
 export type LoginPayload = {
     email: string;
@@ -16,15 +19,8 @@ export type SignupPayload = {
     senha: string;
 };
 
-export type UsuarioOut = {
-    id: number;
-    nome: string;
-    email: string;
-    foto_url?: string | null;
-};
-
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
-    // OAuth2 password flow: o campo do form é `username`, mesmo com login por e-mail.
+    // Contrato do Django: form urlencoded com `username`/`password` (e-mail vai em `username`).
     const form = new URLSearchParams();
     form.append("username", payload.email);
     form.append("password", payload.senha);
